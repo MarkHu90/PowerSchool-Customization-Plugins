@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Must Meet Students</title>
+<!-- required scripts -->
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psQuery/psQuery.js"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    const curUserDCID = '~[x:users_dcid]';
+    const extensionTableName = 'u_ptc_mustmeet';
+
+    function updateSession() {
+      if ($j('#sr_session').val()) {
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+
+        updateSections();
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function updateSections() {
+      let sections = await getPQ(
+        'com.psugasia.ptc5.mustmeet.teachers.sections', 
+        0, 
+        {
+          'sessionid': sessionID,
+          'userdcid': curUserDCID
+        },
+        [
+          'sectionid',
+          'course_name',
+          'section_number',
+          'pmmeid'
+        ],
+        false
+      );
+
+      $j('#sr_sections_fieldset').empty();
+      for (let i = 0;i < sections.length;i++) {
+        let sectionHTML = '<span'+(sections[i].pmmeid ? ' class="mustmeet"' : '')+'>'
+                          + '<input type="checkbox" class="sr_sections" id="sr_sections_'+sections[i].sectionid+'" value="'+sections[i].sectionid+'" checked>'
+                          + '<label for="sr_sections_'+sections[i].sectionid+'">'+sections[i].course_name+' ('+sections[i].section_number+')</label>'
+                        + '</span>';
+        if (i < (sections.length - 1))
+          sectionHTML += '<br>';
+
+        $j('#sr_sections_fieldset').append(sectionHTML);
+      }      
+
+    }
+
+    async function showClassEnrollments() {
+      loadingDialog();
+      let selectedSectionIDs = $j('#sr_sections_fieldset input.sr_sections:checked').map(function() {
+        return parseInt(this.value);
+      }).toArray();
+
+      let enrollments = await getPQ(
+        'com.psugasia.ptc5.mustmeet.teachers.sections.enrollments', 
+        0, 
+        {
+          'sessionid': sessionID,
+          'sectionids': selectedSectionIDs
+        },
+        [
+          'sectionid',
+          'course_name',
+          'section_number',
+          'ccid',
+          'lastfirst',
+          'excluded',
+          'priorityonly',
+          'recordid',
+          'teachermessage',
+          'pmmeid'
+        ],
+        false
+      );
+
+      $j('#div_classenrollments').empty();
+      let previousSectionID = -1;
+      let classenrollmentsHTML = '';
+      enrollments.forEach(function(enrollment) {
+        if (previousSectionID !== parseInt(enrollment.sectionid)) {
+          let templateHTML  = '<h2 class="toggle expanded'+(enrollment.pmmeid ? ' mustmeet' : '')+'">'
+                            + enrollment.course_name+' ('+enrollment.section_number+')'
+                            + '</h2><div><table class="grid classenrollments" id="table_'+enrollment.sectionid+'"><thead><tr>'
+                            + '<th>Student</th>'
+                            + '<th>Excluded <button type="button" class="explanation" data-contentid="excluded">?</button></th>'
+                            + '<th>Priority <button type="button" class="explanation" data-contentid="priority">?</button></th>'
+                            + '<th>Message to Parents</th>'
+                            + '<th></th>'
+                            + '</tr></thead><tbody></tbody></table></div>';
+          $j('#div_classenrollments').append(templateHTML);
+          previousSectionID = parseInt(enrollment.sectionid);
+        }
+
+        let trHTML  = '<tr data-recordid="'+enrollment.recordid+'" data-ccid="'+enrollment.ccid+'">'
+                    + '<td>'+enrollment.lastfirst+'</td>'
+                    + '<td class="centered">'+(parseInt(enrollment.excluded) === 1 ? 'Y' : '')+'</td>'
+                    + '<td class="centered">'+(parseInt(enrollment.priorityonly) === 1 ? 'Y' : '')+'</td>'
+                    + '<td><textarea class="r_teachermessage">'+enrollment.teachermessage+'</textarea></td>'
+                    + '<td class="centered">'+(enrollment.recordid ? '<button type="button" class="r_set unset" onclick="toggleSet(this)">Unset</button>' : '<button type="button" class="r_set" onclick="toggleSet(this)">Set</button>')+'</td>'
+                    + '</tr>';
+        $j('#'+'table_'+enrollment.sectionid+' tbody').append(trHTML);
+      });
+
+      $j('#div_classenrollments').show();
+      loadExplanationToolTips();
+      closeLoading();
+    }
+
+    function toggleSet(e) {
+      let row = $j(e).closest('tr');
+      let recordID = $j(row).data('recordid');
+      let ccID = $j(row).data('ccid');
+      if ($j(e).hasClass('unset')) {
+        $psq(extensionTableName).delete(recordID, function(returnID) {
+          $j('tr[data-ccid="'+Math.abs(ccID)+'"]').data('recordid','');
+          $j('tr[data-ccid="'+Math.abs(ccID)+'"]').attr('data-recordid','');
+          $j('tr[data-ccid="'+Math.abs(ccID)+'"] button.r_set').removeClass('unset').html('Set');
+        });
+      }
+      else {
+        let psqParent = {table: 'u_ptc5_sessions', id: sessionID};
+        let psqFields = {ccid: ccID, teachermessage: $j('textarea.r_teachermessage', row).val()};
+        $psq(extensionTableName).insertChild(psqParent, psqFields, function(returnID) {
+          //$j('tr[data-ccid="'+ccID+'"]').data('recordid', returnID);
+          //$j('tr[data-ccid="'+ccID+'"]').attr('data-recordid', returnID);
+
+          //fix for buggy psquery insertChild return ID
+          $j.ajax({
+            url: '/ws/schema/query/com.psugasia.ptc5.mustmeet.psqueryfix',
+            method: "POST",
+            contentType: "application/json",
+            dataType: "json",
+            data: JSON.stringify({sessionid: sessionID, ccid: ccID}),
+            complete: function(xhr, textStatus) {
+              if (xhr?.responseJSON?.record !== undefined && xhr.responseJSON.record.length > 0) {
+                jsonData = xhr.responseJSON.record;
+
+                $j('tr[data-ccid="'+ccID+'"]').data('recordid', jsonData[0].id);
+                $j('tr[data-ccid="'+ccID+'"]').attr('data-recordid', jsonData[0].id);
+
+                $j('tr[data-ccid="'+ccID+'"] button.r_set').addClass('unset').html('Unset');
+              }
+            }
+          });
+        });
+      }
+    }
+
+    $j(function() {
+      updateSession();
+    });
+  </script>
+  <style>
+    textarea.r_teachermessage {
+      width: 400px;
+      height: 1.2em;
+    }
+    table.classenrollments th:nth-child(1) {
+      width: 400px;
+    }
+    table.classenrollments th:nth-child(2) {
+      width: 100px;
+    }
+    table.classenrollments th:nth-child(3) {
+      width: 100px;
+    }
+    table.classenrollments th:nth-child(5) {
+      width: 80px;
+    }
+    button.unset {
+      background-color: red;
+    }
+    .mustmeet {
+      color: orange;
+    }
+  </style>
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>Must Meet Students</h1> 
+  <form name="navigation"> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no PTC sessions in the current school/year.
+  </div>
+
+  <div id="div_existingsession">
+
+    <div class="feedback-info">
+      <ul>
+        <li>Specify the students you must have a meeting with (they will not be able to complete the booking process unless they book a time with you).</li>
+        <li>You can enter a personalized message to the parent regarding the Must Meet arrangement via the "Message to Parents" box.</li>
+        <li>Some timeslots may only be open to Must Meet students (refer to <a href="ptcsessions.html" target="_blank">PTC Sessions</a> for details).</li>
+        <li>Settting a student as must meet will not give them access to Priority signup.</li>
+        <li><strong class="mustmeet">Orange sections</strong> are already marked as Must Meet by admin, so you do not need to set them here again.</li>
+        <li>Only sections with active students will be shown in the result list.</li>
+      </ul>
+    </div>
+
+    <fieldset>
+      <div>
+        <label for="sr_session">PTC Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <label>Show Sections</label>
+        <fieldset id="sr_sections_fieldset"></fieldset>
+      </div>
+      <div class="button-row">
+        <button type="button" onclick="showClassEnrollments()">Show Class Enrollments</button>
+      </div>
+    </fieldset>
+
+    <div id="div_classenrollments" style="display: none;"></div>
+
+    <div id="explanation_excluded" style="display:none;">
+      This student will be excluded from PTC.
+    </div>
+
+    <div id="explanation_priority" style="display:none;">
+      This student has access to the Priority Signup period.
+    </div>
+  </div>
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

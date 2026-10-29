@@ -1,0 +1,60 @@
+[
+~[tlist_sql;
+select
+s.dcid as studentdcid,
+p.id as personid,
+p.firstname,
+p.middlename,
+p.lastname,
+nvl(cr.displayvalue, cr.code) as relationship,
+(
+  select
+  listagg(e.emailaddress, ',') within group (order by e.emailaddress) as emails
+  
+  from personemailaddressassoc a
+  inner join emailaddress e on a.emailaddressid = e.emailaddressid
+
+  where
+  a.personid = p.id
+) as emails,
+(
+  select
+  listagg(e.phonenumber||' ('||c.code||')', ',') within group (order by e.phonenumber) as phonenumbers
+  
+  from personphonenumberassoc a
+  inner join phonenumber e on a.phonenumberid = e.phonenumberid
+  inner join codeset c on a.phonetypecodesetid = c.codesetid
+
+  where
+  a.personid = p.id
+) as phones
+
+from students s
+inner join studentcontactassoc sca on s.dcid = sca.studentdcid
+inner join studentcontactdetail scd on sca.studentcontactassocid = scd.studentcontactassocid and trunc(sysdate) between trunc(nvl(scd.startdate,sysdate)) and trunc(nvl(scd.enddate,sysdate))
+inner join person p on sca.personid = p.id
+inner join codeset cr on scd.relationshiptypecodesetid = cr.codesetid
+
+where
+s.dcid in (~(gpv.studentdcids))
+and (
+  lower(cr.code) like '%father%'
+  or
+  lower(cr.code) like '%mother%'
+)
+and lower(cr.codetype) = 'relationship'
+and nvl(scd.isactive,0) = 1
+;]
+  {
+    "studentdcid":"~(studentdcid;json)",
+    "personid":"~(personid;json)",
+    "firstname":"~(firstname;json)",
+    "middlename":"~(middlename;json)",
+    "lastname":"~(lastname;json)",
+    "relationship":"~(relationship;json)",
+    "emails":"~(emails;json)",
+    "phones":"~(phones;json)"
+  },
+[/tlist_sql]
+  {}
+]

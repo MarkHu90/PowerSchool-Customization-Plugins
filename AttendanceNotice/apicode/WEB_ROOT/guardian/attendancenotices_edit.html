@@ -1,0 +1,296 @@
+~[if#id.~(gpv.id)=]
+  ~[redirect:/guardian/attendancenotices.html]
+[/if#id]
+
+<style>
+  table.linkDescList td {font-size: 14px;}
+</style>
+
+<script>
+  function submitDelete() {
+    jConfirm("~[text:psx.htmlc.guardian.attendancenotices_edit.deleteconfirm]").then(function (answer) {
+      if(answer == "true") {
+        jQuery("#deleteForm").submit();
+      }
+    });
+  }
+
+  // 将中文/英文时间转换为24小时制
+  function convertTo24Hour(timeStr) {
+    // 处理中文格式 "03:30 下午"
+    if(timeStr.includes('下午')) {
+        var parts = timeStr.split(' ');
+        var timeParts = parts[0].split(':');
+        var hours = parseInt(timeParts[0]);
+        if(hours < 12) hours += 12;
+        return ("0" + hours).slice(-2) + ":" + timeParts[1];
+    }
+    // 处理英文格式 "05:31 PM"
+    else if(timeStr.includes('PM')) {
+        var parts = timeStr.split(' ');
+        var timeParts = parts[0].split(':');
+        var hours = parseInt(timeParts[0]);
+        if(hours < 12) hours += 12;
+        return ("0" + hours).slice(-2) + ":" + timeParts[1];
+    }
+    // 处理上午时间（保持不变）
+    else if(timeStr.includes('上午') || timeStr.includes('AM')) {
+        return timeStr.split(' ')[0];
+    }
+    // 已经是24小时制则直接返回
+    else {
+        return timeStr;
+    }
+  }
+  
+  function isSameDate(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  }
+  
+  function tDialog(s) {
+      jQuery('<div><p>'+s+'</p></div>').dialog({
+        resizable: false,
+        closeOnEscape: false,
+        height: 560,
+        width: 400,
+        modal: true,
+        buttons: {
+          "OK": function() {
+            jQuery( this ).dialog( "close" );
+          }
+        }
+      });
+  }
+
+  function submitSave() {
+    ~[if#highschool.~(curschoolid)=1800]
+    var dateTimeStr = '~[short.date]' + ' ' + convertTo24Hour('~[time]');
+    var now = new Date(dateTimeStr);
+
+    var selectedDateStr = jQuery("#date_start").val();
+    var selectedDate = new Date(selectedDateStr);
+    
+    if(isSameDate(now, selectedDate)) {
+        now.setHours(now.getHours() + 4);
+        var minTime = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+        
+        var selectedTime = jQuery("#time_start").val();
+        
+        if(selectedTime < minTime) {
+            
+            tDialog("Please note: <br>1.Leave applications must be submitted <span style=\"color:red;\">at least 4 hours</span> before the student’s intended departure from school.<br>2.For urgent situations, contact the Student Life Office during working hours (8:00 AM – 5:00 PM) at (021) 61671999, ext. 6202 or 6226.<br>3.In case of an emergency, please call the Emergency Phone: 182 2199 0830.<br><br>请注意：<br>1、最晚的请假提交时间是学生实际离校时间前<span style=\"color:red;\">4小时</span>。<br>2、如遇紧急情况，请在工作时间（上午8:00至下午5:00）拨打（021）61671999，分机号6202或6226，联系学生生活办公室。<br>3、如遇紧急事件，请拨打紧急联系电话：182 2199 0830。");
+            return;
+        }
+    }
+    [/if#highschool]
+
+    jQuery("#sdcid").val("~[tlist_sql;select dcid from students where student_number = '~(student_number)';]~(dcid)[/tlist_sql]");
+    if (!(jQuery("#allday").prop("checked")) && (jQuery("#time_start").val() == '' || jQuery("#time_end").val() == '')) {
+      jDialog("~[text:psx.htmlc.guardian.attendancenotices_edit.fillall]");
+      return;
+    }
+    else if (jQuery('#personal_leave').prop('checked') && jQuery.trim(jQuery("#remarks").val()) == '') {
+      jDialog("~[text:psx.htmlc.guardian.attendancenotices_edit.providereason]");
+      return;
+    }
+    else if (requireRemarks === 1 && jQuery.trim(jQuery("#remarks").val()) == '') {
+      jDialog("~[text:psx.htmlc.guardian.attendancenotices_edit.remarksrequired]");
+      return;
+    }
+    else {
+      ~[if#highschool.~(curschoolid)=1800]
+      console.log("~(student_number)");
+
+      var parentsEmail = ~[tlist_sql;
+            select guardianemail from students 
+            where student_number = ~(student_number)
+      ]"~(guardianemail)"[/tlist_sql];
+      
+      var data = {
+          Name: "PowerSchool Leave Request",
+          From: "powerschool@notice.ykpaoschool.cn",
+          To: parentsEmail,
+          ReplyTo: "slo@ykpaoschool.cn",
+          Subject: "Leave Request Mail Notice",
+          Body: "Dear Parent,<br><br>Your leave application has been successfully submitted. It will be reviewed between 8:00 AM and 4:30 PM on weekdays. Requests submitted after 4:30 PM will be reviewed the next working day.Please wait for the  <span style=\"color:red;\">confirmation email</span> before your child leaves the school.<br><br>Thank you for your continued support.<br><br>Student Life Office<br>YKPS Songjiang Campus<br><br>尊敬的家长，<br><br>本次请假提交成功。我们将在工作日（8：00-16：30）批复。晚于16：30提交的请假将于次日批复。<br>请您耐心等候<span style=\"color:red;\">批复邮件</span>。请假批复后，学生方可离校。<br><br>感谢您一如既往的支持！<br><br>学生生活办公室<br>包玉刚实验学校松江校区"
+      }
+      
+      jQuery.ajax({
+            dataType: "text",
+            contentType:"application/json",
+            type: "POST",
+            url: "https://api.ykpaoschool.cn/api/PowerSchool/SendSMTPMail",
+            data: JSON.stringify(data),
+            async: false,
+            complete: function(xhr, textStatus) {
+              window.location.href = "attendancenotices_calendar.html";
+            },
+            error: function(result) {
+              noErrors = false;
+              console.log("There was a problem processing your request, please try again later");
+            }
+        });
+        [/if#highschool]
+
+      jQuery("#saveForm").submit();
+    }
+  }
+
+  function toggleAllDay() {
+    if (jQuery("#allday").prop("checked")) {
+      jQuery("#time_start").val('').prop("readOnly",true);
+      jQuery("#time_end").val('').prop("readOnly",true);
+    }
+    else {
+      jQuery("#time_start").prop("readOnly",false);
+      jQuery("#time_end").prop("readOnly",false);
+    }
+  }
+</script>
+
+<div class="feedback-confirm" style="display:none; margin-left: 0; margin-right: 0;" id="processed_div">~[text:psx.htmlc.guardian.attendancenotices_edit.recorded]</div>
+<div class="feedback-error" style="display:none; margin-left: 0; margin-right: 0;" id="rejected_div">~[text:psx.htmlc.guardian.attendancenotices_edit.rejected]</div>
+
+<div class="box-round">
+  <form action="attendancenotices_calendar.html" method="POST" id="deleteForm">
+    <input type="hidden" name="ac" value="autosendupdate">
+    <input type="hidden" name="DD-u_attendancenotices_requests.ID:~(gpv.id)" value="1">
+  </form>
+
+  <form action="attendancenotices_calendar.html" method="POST" id="saveForm">
+  ~[DirectTable.Select:u_attendancenotices_requests;ID:~(gpv.id)]
+  <input type="hidden" name="[u_attendancenotices_requests]schoolid" value="~(curschoolid)">
+  <input type="hidden" name="[u_attendancenotices_requests]studentsdcid" id="sdcid" value="">
+  <input type="hidden" name="ac" value="autosendupdate">
+
+  <table class="linkDescList">
+    <tr>
+      <td class="bold">~[text:psx.htmlc.guardian.attendancenotices_edit.absentfrom]</td>
+      <td>
+      <input type="text" id="date_start" name="[u_attendancenotices_requests]date_start" size="11" value="">
+      <input type="time" id="time_start" name="[u_attendancenotices_requests]time_start" value="" size="6" maxlength="5" placeholder="HH:MM">
+      <script>
+        jQuery("#date_start").datepicker(
+          { minDate: 0 }
+        );
+      </script>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">~[text:psx.htmlc.guardian.attendancenotices_edit.absentto]</td>
+      <td>
+      <input type="text" id="date_end" name="[u_attendancenotices_requests]date_end" size="11" value="">
+      <input type="time" id="time_end" name="[u_attendancenotices_requests]time_end" value="" size="6" maxlength="5" placeholder="HH:MM">
+      <script>
+        jQuery("#date_end").datepicker(
+          { minDate: 0 }
+        );
+      </script>
+      </td>
+    </tr>
+    <tr id="tr_allday" style="display:none;">
+      <td class="bold">~[text:psx.htmlc.guardian.attendancenotices_edit.allday]</td>
+      <td>
+      <input type="checkbox" id="allday" name="[u_attendancenotices_requests]allday" value="1" onchange="toggleAllDay()">
+      </td>
+    </tr>
+    <!-- <tr>
+      <td class="bold">~[text:psx.htmlc.guardian.attendancenotices_edit.personalleave]</td>
+      <td>
+        <input type="checkbox" id="personal_leave" name="[u_attendancenotices_requests]personal_leave" value="1">
+      </td>
+    </tr> -->
+    <tr id="reason_tr" style="display:none;">
+      <td class="bold">~[text:psx.htmlc.guardian.attendancenotices_edit.reason]</td>
+      <td>
+        <select id="reason" name="[u_attendancenotices_requests]reason"></select>
+      </td>
+    </tr>
+    <script type="text/javascript">
+    ~[tlist_sql;
+    select
+    trim(reasonslist) as reasonslist
+    from u_attendancenotices_settings
+    where
+    schoolid = '~(curschoolid)'
+    and reasonslist is not null
+    ;]
+      var reasonsList = '~(reasonslist;js)';
+
+      var reasonsListA = reasonsList.split(';');
+      jQuery(reasonsListA).each(function(k,v) {
+        if (v != '')
+          jQuery('#reason').append('<option value="'+jQuery.trim(v)+'">'+jQuery.trim(v)+'</option>');
+      });
+      if (jQuery('#reason option').length > 0)
+        jQuery('#reason_tr').show();
+    [/tlist_sql]
+    ~[tlist_sql;
+    select
+    nvl(show_allday,0) as show_allday,
+    nvl(require_remarks,0) as require_remarks
+    from u_attendancenotices_settings
+    where
+    schoolid = '~(curschoolid)'
+    ;]
+      var showAllDay = parseInt('~(show_allday;js)');
+      var requireRemarks = parseInt('~(require_remarks;js)');
+
+      if (showAllDay === 1)
+        jQuery('#tr_allday').show();
+    [/tlist_sql]
+
+      jQuery('#reason').val("~([u_attendancenotices_requests]reason)");
+    </script>
+    <tr>
+      <td class="bold" valign="top">~[text:psx.htmlc.guardian.attendancenotices_edit.remarks]</td>
+      <td>
+        <textarea id="remarks" name="[u_attendancenotices_requests]remarks" style="height:100px; width:400px;"></textarea>
+      </td>
+    </tr>
+    <tr>
+        <td class="bold" valign="top">Doctor's notes or other proves of absence</td>
+        ~[if#highschool.~(curschoolid)=1800]
+        <td><a href="https://jinshuju.net/f/nWO5LH?field_5=~(student_number)&field_4=~(studentname)" style="color: red;" target="_blank">Please upload attachments for leave here.</a></td>
+        [/if#highschool]
+        <!--~[if#middleschool.~(curschoolid)=2206]-->
+        <!--<td><a href="https://ykps.jinshuju.net/f/Ne444I?field_2=~(student_number)&field_1=~(studentname)" style="color: red;" target="_blank">Please upload attachments for leave here.</a></td>-->
+        <!--[/if#middleschool]-->
+        ~[if#middleschool.~(curschoolid)=2206]
+        <td>If you want to submit supplementary documents, you can send an email with attachment to hq-slo@ykpaoschool.cn</td>
+        [/if#middleschool]
+    </tr>
+  </table>
+  </form>
+</div>
+
+~[if#rejected.~([u_attendancenotices_requests]rejected)=1]
+<div style="text-align: right; margin-top: 10px;" id="button_row">
+  <button type="button" onclick="submitDelete()">~[text:psx.htmlc.guardian.attendancenotices_edit.delete]</button>
+</div>
+[else#rejected]
+  ~[if#processed.~([u_attendancenotices_requests]processed)=1][else#processed]
+  <div style="text-align: right; margin-top: 10px;" id="button_row">
+    <button type="button" onclick="submitSave()">~[text:psx.htmlc.guardian.attendancenotices_edit.save]</button>
+    ~[if#existing.~(gpv.id)#-1]
+    <button type="button" onclick="submitDelete()">~[text:psx.htmlc.guardian.attendancenotices_edit.delete]</button>
+    [/if#existing]
+  </div>
+  [/if#processed]
+[/if#rejected]
+
+<textarea id="rejectedremarks" style="display: none;">~([u_attendancenotices_requests]rejected_remarks)</textarea>
+
+<script>
+  toggleAllDay();
+  if ('~([u_attendancenotices_requests]rejected)' == '1') {
+    jQuery("#rejected_div").show();
+    jQuery('#rejected_div').append('<br>'+jQuery('#rejectedremarks').val());
+  }
+  else if ('~([u_attendancenotices_requests]processed)' == '1') {
+    jQuery("#processed_div").show();
+    jQuery("#button_row button").prop("disabled", true);
+  }
+</script>

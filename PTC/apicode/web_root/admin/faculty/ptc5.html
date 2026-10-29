@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teacher PTC Settings</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    $j(function() {
+      loadExplanationToolTips();
+    });
+  </script>
+</head> 
+<body> 
+ ~[wc:admin_header_frame_css]
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> &gt; <a href="/admin/faculty/home.html?selectteacher=nosearch" target="_top">Staff Selection</a> &gt; Teacher PTC Settings
+ <!-- breadcrumb end -->
+~[wc:admin_navigation_frame_css]
+~[wc:changes_saved_or_deleted_header]
+<!-- start of main menu and content -->
+<h1>Teacher PTC Settings</h1>
+<form action="/~[self.page]?frn=~(teacherfrn)~[if.gpv.recordSaved=]&recordSaved=1[/if]" method="POST">
+  <!-- start of content area -->
+  <div class="feedback-info">
+    Settings on this page apply to all PTC sessions.
+  </div>
+
+  <fieldset>
+    <div>
+      <label for="r_excluded">Excluded from PTC <button type="button" class="explanation" data-contentid="excluded">?</button></label>
+      <select id="r_excluded" name="[schoolstaff.u_ptc5]excluded">
+        <option value=""></option>
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <div>
+      <label for="r_room">PTC Location <button type="button" class="explanation" data-contentid="room">?</button></label>
+      <input type="text" id="r_room" name="[schoolstaff.u_ptc5]room" value="" style="width: 200px;">
+    </div>
+    <div>
+      <label for="r_message">Meeting URL <button type="button" class="explanation" data-contentid="onlineurl">?</button></label>
+      <input type="text" id="r_onlineurl" name="[schoolstaff.u_ptc5]onlineurl" value="" style="width: 500px;" placeholder="https://">
+    </div>
+  </fieldset>
+
+  <div class="button-row">
+    <input type="hidden" name="ac" value="prim">
+    ~[submitbutton]
+  </div>
+
+  <div id="explanation_excluded" style="display:none;">
+    Exclude this teacher from PTC.
+  </div>
+
+  <div id="explanation_room" style="display:none;">
+    Alternate location to show instead of the section's room.
+  </div>
+
+  <div id="explanation_onlineurl" style="display:none;">
+    The URL for online meetings (if applicable), must include http:// or https://
+  </div>
+</form>
+<!-- end of content area -->
+  ~[wc:admin_footer_frame_css]
+</body> 
+</html>

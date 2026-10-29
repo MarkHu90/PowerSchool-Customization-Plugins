@@ -1,0 +1,26 @@
+{
+  "pages": [
+		{
+			"htmlID": "PSUGAsiaPTC5StudentsCoursesandPrograms",
+			"title": "PTC",
+			"version": "5.0.0.0",
+			"contextType": "student",
+			"sortOrder": 99999,
+			"pageURL": null,
+			"districtLevelContext": 0,
+			"parentHTMLID": "navStudentCoursesAndProgramsSection",
+			"children": [
+				{
+					"htmlID": "PSUGAsiaPTC5StudentsCoursesandPrograms_StudentPTCSettings",
+					"title": "Student PTC Settings",
+					"version": "5.0.0.0",
+					"contextType": "student",
+					"sortOrder": 10,
+					"pageURL": "/admin/students/ptc5.html?frn=~(studentfrn)",
+					"parentHTMLID": "PSUGAsiaPTC5StudentsCoursesandPrograms",
+					"districtLevelContext": 0
+				}
+			]
+		}
+  ]
+}

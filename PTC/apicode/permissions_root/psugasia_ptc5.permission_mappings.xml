@@ -1,0 +1,216 @@
+<permission_mappings>
+  <permission name='/admin/psugasia/ptc5/sessions_list.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.list</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/sessions_edit.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_sessions/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_sessions</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_sessions/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.grade_levels</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.years</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.terms</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/timeslots_create.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_courses</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_sections</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_schoolstaff</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.users</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.timeslots.count</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/timeslots_manage.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_courses</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_sections</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_schoolstaff</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.users</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/timeslots_calendar.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_courses</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_courses/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_sections</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_sections/#</implies>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_schoolstaff</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_schoolstaff/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.users</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/timeslots_delete.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/excluded_courses.html'>
+    <implies allow="delete">/ws/schema/table/u_courses_ptc5/#</implies>
+    <implies allow="post">/ws/schema/table/u_courses_ptc5</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.excluded.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.courses</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/excluded_sections.html'>
+    <implies allow="delete">/ws/schema/table/u_sections_ptc5/#</implies>
+    <implies allow="post">/ws/schema/table/u_sections_ptc5</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.excluded.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.sections</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/excluded_students.html'>
+    <implies allow="post">/ws/schema/table/u_students_ptc5</implies>
+    <implies allow="put">/ws/schema/table/u_students_ptc5/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.excluded.students</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.students</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/excluded_schoolstaff.html'>
+    <implies allow="post">/ws/schema/table/u_schoolstaff_ptc5</implies>
+    <implies allow="put">/ws/schema/table/u_schoolstaff_ptc5/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.excluded.schoolstaff</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.teachers</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/testcontacts.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_testingcontacts/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_testingcontacts</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_testingcontacts/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.testingcontacts.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.contactswithdataaccess</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/timeslots_blocked.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_timeslots_blocked/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_timeslots_blocked</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_timeslots_blocked/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.blocked.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.users</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.users</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/cc.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_cc/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_cc</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_cc/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.cc.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.students</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.student.cc</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.sections.override</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/mustmeet_cc.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc_mustmeet/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc_mustmeet</implies>
+    <implies allow="put">/ws/schema/table/u_ptc_mustmeet/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.mustmeet.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.students</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.student.cc</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/mustmeet_sections.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc_mustmeetsections/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc_mustmeetsections</implies>
+    <implies allow="put">/ws/schema/table/u_ptc_mustmeetsections/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.mustmeet.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.sections</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/settings.html'>
+    <implies allow="delete">/ws/schema/table/u_ptc5_settings/#</implies>
+    <implies allow="post">/ws/schema/table/u_ptc5_settings</implies>
+    <implies allow="put">/ws/schema/table/u_ptc5_settings/#</implies>
+
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.settings</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/signups_manage.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.courses</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.users</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.students</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.signups.section</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.signups.section.timeslots</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single.student.cc</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/emailparents.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.email.settings</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/reports_studentswithlessthannbookings.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.reports.studentswithlessthannbookings</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/reports_notbookedmustmeets.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.reports.notbookedmustmeets</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/reports_studentslist.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.reports.studentslist</implies>
+  </permission>
+  <permission name='/admin/psugasia/ptc5/reports_teacherslist.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.reports.teacherslist</implies>
+  </permission>
+  <permission name='/teachers/ptc5/mustmeet.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.mustmeet.teachers.sections</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.mustmeet.teachers.sections.enrollments</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.mustmeet.psqueryfix</implies>
+  </permission>
+  <permission name='/teachers/ptc5/ptcsessions.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.sessions.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.terms</implies>
+  </permission>
+  <permission name='/teachers/ptc5/blocktimeslots.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list.block</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single.courses</implies>
+  </permission>
+  <permission name='/teachers/ptc5/ptcsettings.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.general.teachers.mysettings</implies>
+  </permission>
+  <permission name='/teachers/ptc5/ptcschedule.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.list</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.bookings.single</implies>
+  </permission>
+  <permission name='/teachers/ptc5/ptcwholeschedule.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.bookings.single</implies>
+  </permission>
+  <permission name='/guardian/ptc5_bookings.html'>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.guardian.open</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.timeslots.single</implies>
+    <implies allow="post">/ws/schema/query/com.psugasia.ptc5.guardian.section.timeslots</implies>
+  </permission>
+</permission_mappings>

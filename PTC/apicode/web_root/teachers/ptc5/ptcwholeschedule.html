@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PTC Whole Schedule</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/fontawesome/css/all.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let sessionYearID;
+    let sessionBlockApproval;
+    const curTeacherDCID = '~[tlist_sql;select dcid from teachers where users_dcid = '~[x:users_dcid]' and schoolid = '~(curschoolid)';]~(dcid)[/tlist_sql]';
+    const curTeacherName = '~[x:username]';
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+    let dTable;
+    const dTableID = 'table_wholeschedule';
+    let dTableColumns = [];
+    let sectionsList = [];
+    let hasMultiStudentBookings = false;
+    let timeslotsList = [];
+    let bookingsList = [];
+    let timeslotsFullList = [];
+
+    async function updateSession() {
+      if ($j('#sr_session').val()) {
+        $j('#div_notimeslots').hide();
+        $j('#button_showdtable').html('Loading background data...').prop('disabled', true);
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        sessionYearID = $j('#sr_session').find(':selected').data('yearid');
+        sessionBlockApproval = (parseInt($j('#sr_session').find(':selected').data('blockapproval')) === 1 ? true : false);
+
+        await loadSections();
+        await loadTimeslots();
+        await loadBookings();
+
+        if (timeslotsList.length > 1)
+          $j('#button_showdtable').html('Show Schedule').prop('disabled', false);
+        else {
+          $j('#button_showdtable').html('Show Schedule').prop('disabled', true);
+          $j('#div_notimeslots').show();
+          $j('#div_dtable').hide();
+        }
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadSections() {
+      sectionsList = await getPSJSON(
+        '/teachers/ptc5/sections.json', 
+        {
+          hid: sessionSchoolID,
+          yid: sessionYearID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+    }
+
+    async function loadTimeslots() {
+      timeslotsList = await getPSJSON(
+        '/teachers/ptc5/teachertimeslots.json', 
+        {
+          sessionid: sessionID,
+          hsid: curTeacherDCID,
+          yid: sessionYearID,
+          hid: sessionSchoolID
+        },
+        [
+          'id',
+          'startdt',
+          'enddt',
+          'student',
+          'section',
+          'location',
+          'parents',
+          'message',
+          'remarks'
+        ],
+        false
+      );
+    }
+
+    async function loadBookings() {
+      bookingsList = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/teacherschedule.php', 
+        {
+          a: licenceKey,
+          b: sessionID,
+          g: curTeacherDCID
+        },
+        [
+          'id',
+          'studentdcid',
+          'timeslotid',
+          'sectiondcid',
+          'parentmessage',
+          'lastupdated'
+        ],
+        false
+      );
+
+      let timeslotIDs = [];
+      for (let i = 0; i < bookingsList.length; i++) {
+        if (timeslotIDs.includes(parseInt(bookingsList[i].timeslotid))) {
+          hasMultiStudentBookings = true;
+          break;
+        }
+        timeslotIDs.push(parseInt(bookingsList[i].timeslotid));
+      }
+    }
+
+    async function getDTableData() {
+      let timeslots = structuredClone(timeslotsList);
+
+      let studentDCIDs = [];
+      let bookingIDs = [];
+      bookingsList.forEach(function(booking) {
+        if (!studentDCIDs.includes(parseInt(booking.studentdcid)))
+          studentDCIDs.push(parseInt(booking.studentdcid));
+
+        if (!bookingIDs.includes(parseInt(booking.id)))
+          bookingIDs.push(parseInt(booking.id));
+
+        let section = sectionsList.find((e) => parseInt(e.dcid) === parseInt(booking.sectiondcid));
+        if (section) {
+          booking['section'] = section;
+        }
+      });
+
+      let students = await getPSJSON(
+        '/teachers/ptc5/students.json', 
+        {
+          studentdcids: studentDCIDs.join(',')
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      let contacts = await getPSJSON(
+        '/teachers/ptc5/contacts.json', 
+        {
+          studentdcids: studentDCIDs.join(',')
+        },
+        [
+          'studentdcid',
+          'personid',
+          'firstname',
+          'middlename',
+          'lastname',
+          'relationship',
+          'emails',
+          'phones'
+        ],
+        false
+      );
+
+      let remark = [];
+      if (bookingIDs.length > 0) {
+        remarks = await getPQ(
+          'com.psugasia.ptc5.bookings.single', 
+          0, 
+          {
+            'bookingids': bookingIDs
+          },
+          [
+            'id',
+            'bookingid',
+            'remarks'
+          ],
+          false
+        );
+      }
+
+      await Promise.all(bookingsList.map(async function(booking) {
+        let student = students.filter((s) => parseInt(s.dcid) === parseInt(booking.studentdcid));
+        if (student) {
+          booking['student'] = student;
+        }
+
+        let contact = contacts.filter((c) => parseInt(c.studentdcid) === parseInt(booking.studentdcid));
+        if (contact) {
+          booking['contacts'] = contact;
+        }
+
+        let remark = remarks.find((r) => parseInt(r.bookingid) === parseInt(booking.id));
+        if (remark) {
+          booking['remarks'] = remark;
+        }
+
+        let location = await getPSJSON(
+          '/teachers/ptc5/location.json', 
+          {
+            sdcid: booking.studentdcid,
+            edcid: booking.sectiondcid,
+            sessionid: sessionID
+          },
+          [
+            'studentdcid',
+            'sectiondcid',
+            'schoolstaffdcid',
+            'teacher',
+            'room',
+            'onlineurl',
+            'pmmeid',
+            'pmmid'
+          ],
+          true
+        );
+        if (location?.studentdcid != '') {
+          booking['location'] = location;
+        }
+
+        let timeslot = timeslots.find((t) => parseInt(t.id) === parseInt(booking.timeslotid));
+        if (timeslot) {
+          if (!timeslot?.booking)
+            timeslot['booking'] = booking;
+          else {
+            newTimeslot = structuredClone(timeslot);
+            newTimeslot['booking'] = booking;
+            timeslots.push(newTimeslot);
+          }
+        }
+      }));
+
+      //console.log(timeslots);
+      timeslotsFullList = structuredClone(timeslots);
+
+      return timeslots;
+    }
+
+    function showDTable() {
+      $j('#div_dtable').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      dTableColumns = [
+        { name: "id", title: "Timeslot Date/Time", data: 'id', render: function ( data, type, row ) {
+          if (type == 'sort')
+            return row.startdt;
+          else {
+            console.log(row);
+            let startT = row.startdt.split('T')[1];
+            let endT = row.enddt.split('T')[1];
+            if (startT && endT) {
+              let startD = ptcDDMONString(new Date(row.startdt));
+              return startT+' - '+endT+' ('+startD+')';
+            }
+            else
+              return '';
+          }
+        } },
+        { name: "student", title: "Student", data: 'student', render: function ( data, type, row ) {
+          return row?.booking?.student[0]?.lastfirst || '';
+        } },
+        { name: "section", title: "Section", data: 'section', render: function ( data, type, row ) {
+          if (row?.booking?.section?.course_name && row?.booking?.section?.section_number)
+            return (row?.booking?.location?.pmmeid || row?.booking?.location?.pmmid ? '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i> ' : '') + row?.booking?.section?.course_name+' ('+row?.booking?.section?.section_number+')';
+          else
+            return '';
+        } },
+        { name: "location", title: "Location", data: 'location', render: function ( data, type, row ) {
+          return row?.booking?.location?.onlineurl || row?.booking?.location?.room || '';
+        } },
+        { name: "parents", title: "Parents", data: 'parents', render: function ( data, type, row ) {
+          let parentString = '';
+          for (let i = 0; i < row?.booking?.contacts?.length || 0; i++) {
+            let s = '';
+            if (row?.booking?.contacts[i]?.lastname != '' || row?.booking?.contacts[i]?.firstname != '' || row?.booking?.contacts[i]?.middlename != '') {
+              s = row?.booking?.contacts[i]?.lastname+', '+row?.booking?.contacts[i]?.firstname+' '+row?.booking?.contacts[i]?.middlename;
+              parentString += (parentString != '' ? ' / ' : '')+s.trim();
+            }
+          }
+          return parentString;
+        } },
+        { name: "message", title: "Message from Parents", data: 'message', class: 'preserveLineBreaks', render: function ( data, type, row ) {
+          return row?.booking?.parentmessage || '';
+        } },
+        { name: "remarks", title: "Your Remarks", data: 'remarks', class: 'preserveLineBreaks', render: function ( data, type, row ) {
+          return row?.booking?.remarks?.remarks || '';
+        }}
+      ];
+
+      let dTableOptions = {
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc'], [1, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        }
+      };
+
+      if (hasMultiStudentBookings) {
+        dTableOptions['rowGroup'] = {
+          dataSrc: 'id',
+          startRender: function(rows, group) {
+            let timeslot = timeslotsList.find((t) => parseInt(t.id) == parseInt(group));
+            let startT = timeslot.startdt.split('T')[1];
+            let endT = timeslot.enddt.split('T')[1];
+            let startD = ptcDDMONString(new Date(timeslot.startdt));
+            return startT+' - '+endT+' ('+startD+')';
+          }
+        };
+      }
+
+      dTable = new DataTable('#'+dTableID, dTableOptions);
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'id':
+            case 'parents':
+            case 'message':
+            case 'remarks':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'student':
+            case 'section':
+            case 'location':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+          }
+        });
+      }
+    }
+
+    async function downloadICS() {
+      let haveBookings = false;
+
+      const timeZoneCode = '/timezones-ical-library/~[tlist_sql;select timezone_code from u_ptc5_settings where rownum=1;]~(timezone_code)[/tlist_sql]';
+      const vtimezone = await fetch('/teachers/ptc5/vtimezone.html', {
+        method: "GET"
+      });
+      const icsVTimeZone = await vtimezone.text();
+
+      let icsEvents = '';
+      for(const timeslot of timeslotsFullList) {
+        if (timeslot?.booking) {
+          haveBookings = true;
+
+          let student = timeslot?.booking?.student;
+          let section = timeslot?.booking?.section;
+          let location = timeslot?.booking?.location;
+          let contacts = timeslot?.booking?.contacts;
+
+          let description = 'Section: '+section?.course_name+' ('+section?.section_number+')\\r\\n';
+          if (contacts.length > 0) {
+            description += 'Contacts: '+contacts.map((e) => String(e.lastname+', '+e.firstname+' '+e.middlename).trim()+' ('+e.relationship+')').join(' / ')+'\\r\\n';
+          }
+          if (timeslot?.booking?.parentmessage) {
+            description += 'Message from Parents: '+timeslot?.booking?.parentmessage+'\\r\\n';
+          }
+
+          let vEvent  = 'BEGIN:VEVENT\n'
+                      + 'SUMMARY:'+student[0]?.lastfirst+'\n'
+                      + 'DTSTART;TZID='+timeZoneCode+':'+timeslot.startdt.replaceAll('-','').replaceAll(':','')+'00\n'
+                      + 'DTEND;TZID='+timeZoneCode+':'+timeslot.enddt.replaceAll('-','').replaceAll(':','')+'00\n'
+                      + 'LOCATION:'+(location?.onlineurl || location?.room)+'\n'
+                      + 'DESCRIPTION:'+description+'\n'
+                      + 'END:VEVENT\n';
+          icsEvents += vEvent;
+        }
+      };
+
+      if (!haveBookings) {
+        alert("Your PTC schedule is empty");
+        return;
+      }
+
+      let icsHeader = 'BEGIN:VCALENDAR\n'
+                    + 'VERSION:2.0\n'
+                    + 'CALSCALE:GREGORIAN\n';
+
+
+      let icsFooter = 'END:VCALENDAR\n';
+
+      let ics = icsHeader + icsVTimeZone + icsEvents + icsFooter;
+
+      let textFileAsBlob = new Blob([ics], { type: 'text/plain' });
+      let downloadLink = document.createElement('a');
+      downloadLink.download = 'ptc.ics';
+      downloadLink.innerHTML = 'Download File';
+
+      if (window.webkitURL != null) {
+        downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+      } else {
+        downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+      }
+
+      downloadLink.click();
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+  </style>
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>PTC Whole Schedule</h1> 
+  <form name="navigation"> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no PTC sessions in the current school/year.
+  </div>
+
+  <div id="div_existingsession">
+    <div class="feedback-info">
+      Select the PTC session you want to see.
+    </div>
+
+    <fieldset>
+      <div>
+        <label for="sr_session">PTC Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  yearid,
+  blockapproval,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)" data-yearid="~(yearid)" data-blockapproval="~(blockapproval)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+      <div class="button-row">
+        <button type="button" id="button_showdtable" onclick="showDTable()">Show Schedule</button>
+      </div>
+    </fieldset>
+
+    <div class="feedback-alert" id="div_notimeslots" style="display: none;">
+      There are no timeslots applicable to you in the selected session.
+    </div>
+
+    <div class="box-round" id="div_dtable" style="padding: 10px; display: none;">
+      <div class="feedback-info">
+        You can download your PTC schedule as an ICS file which can be imported to most calendar applications.  Please note the ICS import is a carbon copy of your PTC schedule at the point in time when you downloaded it.  If bookings change, please download the file again and re-import it into your calendar (remember to remove the previous imported events first).
+        <br>
+        <button type="button" onclick="downloadICS()" style="margin-inline-start: 0;">Download ICS File</button>
+      </div>
+
+      <table class="display compact" id="table_wholeschedule">
+        <thead>
+          <tr>
+            <th>Timeslot Date/Time</th>
+            <th>Student</th>
+            <th>Section</th>
+            <th>Location</th>
+            <th>Parents</th>
+            <th>Message from Parents</th>
+            <th>Your Remarks</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+  </div>
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

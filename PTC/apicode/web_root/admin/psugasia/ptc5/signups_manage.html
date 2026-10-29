@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Signups</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/fontawesome/css/all.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let dTable;
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+    const dTableID = 'table_signups';
+    let dTableColumns = [];
+    let studentsList = [];
+    let sectionsList = [];
+    let timeslotsList = [];
+
+    async function updateSession() {
+      if ($j('#sr_session').val()) {
+        $j('#button_search').html('Getting data...').prop('disabled', true);
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+
+        $j('#sr_students').chosen({
+          width: "400px",
+          no_results_text: "Oops, nothing found!"
+        });
+
+        $j('#sr_courses').chosen({
+          width: "400px",
+          no_results_text: "Oops, nothing found!"
+        });
+
+        $j('#sr_sections').chosen({
+          width: "400px",
+          no_results_text: "Oops, nothing found!"
+        });
+
+        $j('#sr_users').chosen({
+          width: "400px",
+          no_results_text: "Oops, nothing found!"
+        });
+
+        await loadStudents();
+        await loadCourses();
+        await loadSections();
+        await loadUsers();
+        await loadTimeslots();
+
+        $j('#button_search').html('Search').prop('disabled', false);
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadStudents() {
+      studentsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.students', 
+        0, 
+        {
+          sessionid: sessionID
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      $j('#sr_students').empty();
+      $j('#a_student').empty();
+      $j('#sr_students').append('<option value="-1"></option>');
+      $j('#a_student').append('<option value=""></option>');
+      studentsList.forEach(function(v, i, a) {
+        $j('#sr_students').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+        $j('#a_student').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+      });
+      $j('#sr_students').trigger("chosen:updated");
+      $j('#sr_students').trigger('change');
+    }
+
+    async function loadCourses() {
+      let coursesList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.courses', 
+        0, 
+        {
+          sessionid: sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'course_number'
+        ],
+        false
+      );
+
+      $j('#sr_courses').empty();
+      $j('#sr_courses').append('<option value="-1"></option>');
+      coursesList.forEach(function(v, i, a) {
+        $j('#sr_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+      });
+      $j('#sr_courses').trigger("chosen:updated");
+      $j('#sr_courses').trigger('change');
+    }
+
+    async function loadSections() {
+      sectionsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.sections', 
+        0, 
+        {
+          sessionid: sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number',
+          'lastfirst',
+          'coursedcid'
+        ],
+        false
+      );
+
+      $j('#sr_sections').empty();
+      $j('#sr_sections').append('<option value="-1"></option>');
+      sectionsList.forEach(function(v, i, a) {
+        $j('#sr_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+      });
+      $j('#sr_sections').trigger("chosen:updated");
+      $j('#sr_sections').trigger('change');
+    }
+
+    async function loadUsers() {
+      let usersList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.users', 
+        0, 
+        {
+          sessionid: sessionID
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      $j('#sr_users').empty();
+      $j('#sr_users').append('<option value="-1"></option>');
+      usersList.forEach(function(v, i, a) {
+        $j('#sr_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+      });
+      $j('#sr_users').trigger("chosen:updated");
+      $j('#sr_users').trigger('change');
+    }
+
+    async function loadCC() {
+      let CCList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.student.cc', 
+        0, 
+        {
+          sessionid: sessionID,
+          studentdcid: $j('#a_student').val()
+        },
+        [
+          'course_name',
+          'section_number',
+          'lastfirst',
+          'sectiondcid',
+          'schoolstaffdcid',
+          'mustmeet'
+        ],
+        false
+      );
+
+      $j('#a_section').empty();
+      $j('#a_section').append('<option value=""></option>');
+      CCList.forEach(function(v, i, a) {
+        $j('#a_section').append('<option value="'+v.sectiondcid+'" data-teacher="'+v.lastfirst+'" data-schoolstaffdcid="'+v.schoolstaffdcid+'" data-mustmeet="'+v.mustmeet+'">'+v.course_name+' ('+v.section_number+')</option>');
+      });
+      $j('#a_section').trigger('change');
+    }
+
+    function showTeacher() {
+      $j('#a_teacher').empty();
+      $j('#a_teacher').html($j('#a_section option:selected').data('teacher'));
+    }
+
+    function clearSelection(e) {
+      $j('#'+e).val('-1');
+      $j('#'+e).trigger("chosen:updated");
+      $j('#'+e).trigger('change');
+    }
+
+    async function loadTimeslots() {
+      timeslotsList = await getPQ(
+        'com.psugasia.ptc5.timeslots.list', 
+        0, 
+        {
+          sessionid: sessionID,
+          coursedcid: '-1',
+          sectiondcid: '-1',
+          schoolstaffdcid: '-1',
+          daterange1: '',
+          daterange2: '',
+          status: '1',
+          timeslotid: '-1'
+        },
+        [
+          'id',
+          'startdt',
+          'enddt',
+          'grade_levels',
+          'priorityonly',
+          'admin',
+          'mustmeet',
+          'capacity'
+        ],
+        false
+      );
+    }
+
+    async function getDTableData(recordID = '-1') {
+      let records = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+        {
+          a: licenceKey,
+          b: sessionID,
+          c: $j('#sr_students').val(),
+          f: $j('#sr_sections').val(),
+          g: $j('#sr_users').val(),
+          h: 'list',
+          j: recordID
+        },
+        [
+          'id',
+          'studentdcid',
+          'timeslotid',
+          'sectiondcid',
+          'schoolstaffdcid',
+          'parentmessage',
+          'admin',
+          'mustmeet',
+          'lastupdated',
+          'edit'
+        ],
+        false
+      );
+
+      //console.log(records);
+
+      records.forEach(function(record) {
+        record['student'] = studentsList.find((e) => parseInt(e.dcid) === parseInt(record.studentdcid))?.lastfirst || 'Unknown Student';
+        record['course_name'] = sectionsList.find((e) => parseInt(e.dcid) === parseInt(record.sectiondcid))?.course_name || 'Unknown Course';
+        record['coursedcid'] = sectionsList.find((e) => parseInt(e.dcid) === parseInt(record.sectiondcid))?.coursedcid || -1;
+        record['section_number'] = sectionsList.find((e) => parseInt(e.dcid) === parseInt(record.sectiondcid))?.section_number || 'Unknown Section';
+        record['teacher'] = sectionsList.find((e) => parseInt(e.dcid) === parseInt(record.sectiondcid))?.lastfirst || 'Unknown Teacher';
+        record['startdt'] = timeslotsList.find((e) => parseInt(e.id) === parseInt(record.timeslotid))?.startdt || '1900-01-01T00:00';
+        record['enddt'] = timeslotsList.find((e) => parseInt(e.id) === parseInt(record.timeslotid))?.enddt || '1900-01-01T00:00';
+        record['timeslot'] = timeslotsList.find((e) => parseInt(e.id) === parseInt(record.timeslotid)) || -1;
+      });
+
+      if ($j('#sr_courses').val() != '-1')
+        records = records.filter((e) => parseInt(e.coursedcid) === parseInt($j('#sr_courses').val()));
+
+      //console.log(records);
+
+      return records;
+    }
+
+    function showDTable() {
+      $j('#div_dtable').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      dTableColumns = [
+        { name: "student", title: "Student", data: 'student', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<a href="/admin/students/home.html?frn=001'+row.studentdcid+'&gs=true" target="_blank">'+data+'</a>';
+          else
+            return data;
+        } },
+        { name: "course_name", title: "Course", data: 'course_name' },
+        { name: "section_number", title: "Section", data: 'section_number' },
+        { name: "teacher", title: "Teacher", data: 'teacher' },
+        { name: "startdt", title: "Timeslot Date/Time", data: 'startdt', render: function ( data, type, row ) {
+          if (type == 'sort')
+            return data;
+          else {
+            let startT = row.startdt.split('T')[1];
+            let endT = row.enddt.split('T')[1];
+            let startD = ptcDDMONString(new Date(row.startdt));
+            return startT+' - '+endT+' ('+startD+')';
+          }
+        } },
+        { name: "mustmeet", title: "Must Meet", data: 'mustmeet', render: function ( data, type, row ) {
+          if (data == 'e') return 'Section';
+          else if (data == 't') return 'Teacher';
+          else return data;
+        } },
+        { name: "admin", title: "Admin Edited", data: 'admin', render: function ( data, type, row ) {
+          return (parseInt(data) === 1 ? 'Y' : '');
+        } },
+        { name: "lastupdated", title: "Last Updated", data: 'lastupdated' },
+        { name: "edit", title: "", data: 'edit', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" class="button_edit" onclick="editRecord(this)">Edit</button>';
+          else
+            return data;
+        } }
+      ];
+
+      dTable = new DataTable('#'+dTableID, {
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc'], [1, 'asc'], [2, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.id);
+          $j(row).data('record', data);
+        }
+      });
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'student':
+            case 'section_number':
+            case 'startdt':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'course_name':
+            case 'teacher':
+            case 'admin':
+            case 'mustmeet':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+            case 'lastupdated':
+              var input = $j('<input type="date" id="ft_date_'+colIdx+'" data-index="' + colIdx + '" style="width: 105px;" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j('#ft_date_'+colIdx).val())
+                    .draw();
+                });
+                
+              break;
+          }
+        });
+      }
+    }
+
+    async function editRecord(e) {
+      $j('#div_dialog_edit fieldset span.record').empty();
+      //$j('#div_dialog_edit fieldset select').empty();
+      $j('#div_dialog_edit fieldset textarea').empty();
+      //await loadSections();
+
+      let row = $j(e).closest('tr');
+      let record = $j(row).data('record');
+      //console.log('record:');
+      //console.log(record);
+
+      let sectionDetails = await getPQ(
+        'com.psugasia.ptc5.signups.section', 
+        0, 
+        {
+          sessionid: sessionID,
+          sectiondcid: record.sectiondcid
+        },
+        [
+          'room',
+          'onlineurl'
+        ],
+        true
+      );
+
+      $j('#r_student').html(record.student);
+      $j('#r_course').html(record.course_name);
+      $j('#r_section').html(record.section_number);
+      $j('#r_teacher').html(record.teacher);
+      $j('#r_location').html(sectionDetails.room);
+      $j('#r_onlineurl').html(sectionDetails.onlineurl);
+      $j('#r_parentmessage').val(record.parentmessage);
+      if (record.mustmeet != '') {
+        $j('#r_course').prepend('<i class="fa-solid fa-triangle-exclamation" style="color:red;" title="Must Meet"></i> ');
+      }
+
+      await showTimeslots('r', record);
+
+      /*
+      if (parseInt($j('#sr_timeslotschoice').val()) === 1) {
+        let optionHTML = '';
+        timeslotsList.forEach(function(timeslot) {
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          optionHTML = '<option value="'+timeslot.id+'" data-capacity="'+timeslot.capacity+'">'+startT+' - '+endT+' ('+startD+')</option>';
+          $j('#r_timeslot').append(optionHTML);
+        });
+      }
+      else {
+        let sectionTimeslots = await getAvailableTimeslots(record);
+
+        sectionTimeslots.forEach(function(timeslot) {
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          optionHTML = '<option value="'+timeslot.id+'" data-capacity="'+timeslot.capacity+'">'+startT+' - '+endT+' ('+startD+')</option>';
+          $j('#r_timeslot').append(optionHTML);
+        });
+      }
+
+      if (record.timeslotid) {
+        $j('#r_timeslot').val(record.timeslotid);
+        $j('#r_timeslot').data('existing', record.timeslotid);
+      }
+
+      if ($j('#r_timeslot option').length === 1) {
+        $j('#r_timeslot').hide();
+        $j('#r_reloadtimeslots').hide();
+        $j('#r_timeslot_notimeslots').show();
+      }
+      */
+
+      $j('#div_dialog_edit').dialog({
+        modal: true,
+        width: 800,
+        height: 500,
+        buttons: [
+          {
+            text: 'Submit',
+            click: async function() {
+              let dialog = this;
+              
+              //console.log('new timeslot: '+$j('#r_timeslot').val());
+
+              let response = await getPHP(
+                'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+                {
+                  a: licenceKey,
+                  b: sessionID,
+                  c: record.studentdcid,
+                  d: $j('#r_timeslot').val(),
+                  e: $j('#r_timeslot option:selected').data('capacity'),
+                  f: record.sectiondcid,
+                  g: record.schoolstaffdcid,
+                  h: (parseInt($j('#sr_timeslotschoice').val()) === 1 ? 'change' : 'changeoverride'),
+                  j: record.id,
+                  k: $j('#r_parentmessage').val(),
+                  l: $j('#r_timeslot').data('existing'),
+                  m: record.mustmeet
+                },
+                [
+                  'result',
+                  'id'
+                ],
+                true
+              );
+
+              //console.log(response);
+
+              if (response?.result == 'success') {
+                let updatedRowData = await getDTableData(response?.id);
+                let row = $j(e).closest('tr');
+                //console.log(updatedRowData[0]);
+                dTable.row(dTable.row(row).index()).data(updatedRowData[0]).invalidate();
+                //$j(row).removeClass('changed');
+                dTableFilters();
+                //dTable.ajax.reload();
+                //closeLoading();
+                $j(row).data('record', updatedRowData[0]);
+                $j(dialog).dialog("close");
+              }
+              else {
+                if (parseInt($j('#sr_timeslotschoice').val()) === 1)
+                  $j('#p_taken').show();
+                else {
+                  console.log(response);
+                  alert("There was a problem processing this record, please try again");
+                }
+              }
+            }
+          },
+          {
+            text: 'Delete',
+            click: async function() {
+              if (confirm("Are you sure you want to delete this record?")) {
+                let dialog = this;
+
+                let response = await getPHP(
+                  'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+                  {
+                    a: licenceKey,
+                    b: sessionID,
+                    c: record.studentdcid,
+                    f: record.sectiondcid,
+                    h: 'unbook',
+                    j: record.id,
+                    l: $j('#r_timeslot').data('existing')
+                  },
+                  [
+                    'result'
+                  ],
+                  true
+                );
+
+                //console.log(response);
+
+                if (response?.result == 'success') {
+                  let row = $j(e).closest('tr');
+                  dTable.row(dTable.row(row).index()).remove();
+                  $j(row).remove();
+                  dTableFilters();
+                  $j(dialog).dialog("close");
+                }
+                else {
+                  console.log(response);
+                  alert("There was a problem processing this record, please try again");
+                }
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    async function getAvailableTimeslots(record) {
+      let avaliableTimeslots = [];
+
+      if (record.sectiondcid) {
+        let sectionTimeslots = await getPQ(
+          'com.psugasia.ptc5.signups.section.timeslots', 
+          0, 
+          {
+            studentdcid: record.studentdcid,
+            sessionid: sessionID,
+            sectiondcid: record.sectiondcid,
+            schoolstaffdcid: record.schoolstaffdcid,
+            ismustmeet: (record.mustmeet != '' ? 1 : 0)
+          },
+          [
+            'id',
+            'startdt',
+            'enddt',
+            'capacity'
+          ],
+          false
+        );
+
+        //console.log(sectionTimeslots);
+
+        let otherBookedTimeslotsA = await getPHP(
+          'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+          {
+            a: licenceKey,
+            b: sessionID,
+            c: record.studentdcid,
+            h: 'list',
+            j: '-1',
+            f: '-1',
+            g: '-1'
+          },
+          [
+            'timeslotid'
+          ],
+          false
+        );
+
+        //console.log(otherBookedTimeslotsA);
+        let otherBookedTimeslots = [];
+        otherBookedTimeslotsA.forEach(function(e) {
+          otherBookedTimeslots.push(e.timeslotid);
+        });
+
+        let taken = await getPHP(
+          'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+          {
+            a: licenceKey,
+            b: sessionID,
+            //c: record.studentdcid,
+            g: record.schoolstaffdcid,
+            h: 'taken'
+          },
+          [
+            'id',
+            'timeslotid'
+          ],
+          false
+        );
+
+        //console.log(taken);
+
+        sectionTimeslots.forEach(function(timeslot) {
+          //console.log(timeslot);
+          if (
+            (
+              taken.filter(e => parseInt(e.timeslotid) === parseInt(timeslot.id)).length < parseInt(timeslot.capacity)
+              //taken not over timeslot capacity
+              &&
+              !otherBookedTimeslots.includes(parseInt(timeslot.id))
+              //not self booked timeslot for another section
+            )
+            ||
+            parseInt(timeslot.id) === parseInt(record.timeslotid)
+            //is booked timeslot
+          ) {
+            avaliableTimeslots.push(timeslot);
+          }
+        });
+      }
+      return avaliableTimeslots;
+    }
+
+    async function showTimeslots(editType, record = null) {
+      if (!record) {
+        record = {
+          studentdcid: $j('#'+editType+'_student').val(),
+          sectiondcid: $j('#'+editType+'_section').val(),
+          schoolstaffdcid: $j('#'+editType+'_section option:selected').data('schoolstaffdcid'),
+          mustmeet: $j('#'+editType+'_section option:selected').data('mustmeet'),
+          timeslotid: 0
+        };
+      }
+
+      $j('#'+editType+'_timeslot').empty();
+      $j('#'+editType+'_timeslot').show();
+      $j('#'+editType+'_reloadtimeslots').show();
+      $j('#'+editType+'_timeslot_notimeslots').hide();
+
+      if (parseInt($j('#sr_timeslotschoice').val()) === 1) {
+        let optionHTML = '';
+        timeslotsList.forEach(function(timeslot) {
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          optionHTML = '<option value="'+timeslot.id+'" data-capacity="'+timeslot.capacity+'">'+startT+' - '+endT+' ('+startD+')</option>';
+          $j('#'+editType+'_timeslot').append(optionHTML);
+        });
+      }
+      else {
+        let sectionTimeslots = await getAvailableTimeslots(record);
+
+        sectionTimeslots.forEach(function(timeslot) {
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          optionHTML = '<option value="'+timeslot.id+'" data-capacity="'+timeslot.capacity+'">'+startT+' - '+endT+' ('+startD+')</option>';
+          $j('#'+editType+'_timeslot').append(optionHTML);
+        });
+      }
+
+      if (
+        (editType == 'a' && $j('#'+editType+'_timeslot option').length === 0)
+        ||
+        (editType == 'r' && $j('#'+editType+'_timeslot option').length === 1)
+      ) {
+        $j('#'+editType+'_timeslot').hide();
+        $j('#'+editType+'_reloadtimeslots').hide();
+        $j('#'+editType+'_timeslot_notimeslots').show();
+      }
+
+      if (editType == 'r' && record.timeslotid) {
+        $j('#r_timeslot').val(record.timeslotid);
+        $j('#r_timeslot').data('existing', record.timeslotid);
+      }
+
+      $j('#'+editType+'_reloadtimeslots').off('click');
+      $j('#'+editType+'_reloadtimeslots').on('click', function(){
+        showTimeslots(editType, record);
+      });
+    }
+
+    async function addRecord() {
+      $j('#div_dialog_add fieldset span.record').empty();
+      $j('#div_dialog_add fieldset textarea').empty();
+
+      $j('#div_dialog_add').dialog({
+        modal: true,
+        width: 800,
+        height: 400,
+        buttons: [
+          {
+            text: 'Submit',
+            click: async function() {
+              if (isMissingInput()) {
+                alert("Please fill in all required fields");
+                $j('.requiredInputMissing').first().focus();
+                return;
+              }
+
+              let dialog = this;
+
+              //console.log('new timeslot: '+$j('#a_timeslot').val());
+
+              let response = await getPHP(
+                'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+                {
+                  a: licenceKey,
+                  b: sessionID,
+                  c: $j('#a_student').val(),
+                  d: $j('#a_timeslot').val(),
+                  e: $j('#a_timeslot option:selected').data('capacity'),
+                  f: $j('#a_section').val(),
+                  g: $j('#a_section option:selected').data('schoolstaffdcid'),
+                  h: (parseInt($j('#sr_timeslotschoice').val()) === 1 ? 'book' : 'bookoverride'),
+                  k: $j('#a_parentmessage').val(),
+                  m: $j('#a_section option:selected').data('mustmeet')
+                },
+                [
+                  'result'
+                ],
+                true
+              );
+
+              //console.log(response);
+
+              if (response?.result == 'success') {
+                dTable.ajax.reload();
+                $j(dialog).dialog("close");
+              }
+              else {
+                if (parseInt($j('#sr_timeslotschoice').val()) === 1)
+                  $j('#p_taken').show();
+                else {
+                  console.log(response);
+                  alert("There was a problem processing this record, please try again");
+                }
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+    #r_timeslot_notimeslots {
+      display: inline-block;
+      margin: 0;
+    }
+    #a_timeslot_notimeslots {
+      display: inline-block;
+      margin: 0;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Manage Signups
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Manage Signups</h1> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <label for="sr_students">Filter Student</label>
+        <select id="sr_students"></select>
+        <button type="button" onclick="clearSelection('sr_students')">Clear</button>
+      </div>
+      <div>
+        <label for="sr_courses">Filter Course</label>
+        <select id="sr_courses"></select>
+        <button type="button" onclick="clearSelection('sr_courses')">Clear</button>
+      </div>
+      <div>
+        <label for="sr_sections">Filter Section</label>
+        <select id="sr_sections"></select>
+        <button type="button" onclick="clearSelection('sr_sections')">Clear</button>
+      </div>
+      <div>
+        <label for="sr_users">Filter Teacher</label>
+        <select id="sr_users"></select>
+        <button type="button" onclick="clearSelection('sr_users')">Clear</button>
+      </div>
+      <div>
+        <label for="sr_timeslotschoice">Timeslots Choice <button type="button" class="explanation" data-contentid="timeslotschoice">?</button></label>
+        <select id="sr_timeslotschoice">
+          <option value="1">All Timeslots</option>
+          <option value="2">Available Timeslots</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" id="button_search" onclick="showDTable()">Search</button>
+    </div>
+
+    <div class="box-round" id="div_dtable" style="padding: 10px; display: none;">
+      <div class="button-row">
+        <button type="button" onclick="addRecord()">Add</button>
+      </div>
+
+      <table class="display compact" id="table_signups">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Course</th>
+            <th>Section</th>
+            <th>Teacher</th>
+            <th>Timeslot Date/Time</th>
+            <th>Must Meet</th>
+            <th>Admin Edited</th>
+            <th>Last Updated</th>
+            <th class="alwaysshow noexport"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div id="explanation_timeslotschoice" style="display:none;">
+        Controls which timeslots you are able to pick from when editing signups.
+        <ul>
+          <li>All Timeslots - allow picking from any timeslot regardless if it is avaliable or not</li>
+          <li>Available Timeslots - only allow picking from available timeslots</li>
+        </ul>
+      </div>
+
+      <div id="div_dialog_edit" style="display:none;" title="Edit Signup">
+        <fieldset>
+          <div>
+            <label>Student</label>
+            <span id="r_student" class="record"></span>
+          </div>
+          <div>
+            <label>Course</label>
+            <span id="r_course" class="record"></span>
+          </div>
+          <div>
+            <label>Section</label>
+            <span id="r_section" class="record"></span>
+          </div>
+          <div>
+            <label>Teacher</label>
+            <span id="r_teacher" class="record"></span>
+          </div>
+          <div>
+            <label>Location</label>
+            <span id="r_location" class="record"></span>
+          </div>
+          <div>
+            <label>Online Meeting URL</label>
+            <span id="r_onlineurl" class="record"></span>
+          </div>
+          <div>
+            <label>Timeslot</label>
+            <select id="r_timeslot"></select>
+            <button type="button" id="r_reloadtimeslots"><i class="fa-solid fa-rotate"></i></button>
+            <span id="r_timeslot_notimeslots" class="feedback-alert" style="display: none;">There are no available timeslots left</span>
+          </div>
+          <div>
+            <label>Message to Teacher</label>
+            <textarea id="r_parentmessage" style="width: 400px; height: 4em;"></textarea>
+          </div>
+        </fieldset>
+        <p class="feedback-error" id="p_taken" style="display: none;">
+          The selected timeslot has already been taken.
+        </p>
+      </div>
+
+      <div id="div_dialog_add" style="display:none;" title="Add Signup">
+        <fieldset>
+          <div>
+            <label><span class="requiredInput">Student</span></label>
+            <select id="a_student" onchange="loadCC()"></select>
+          </div>
+          <div>
+            <label><span class="requiredInput">Section</span></label>
+            <select id="a_section" onchange="showTeacher();showTimeslots('a');"></select>
+          </div>
+          <div>
+            <label>Teacher</label>
+            <span id="a_teacher" class="record"></span>
+          </div>
+          <div>
+            <label><span class="requiredInput">Timeslot</span></label>
+            <select id="a_timeslot"></select>
+            <button type="button" id="a_reloadtimeslots"><i class="fa-solid fa-rotate"></i></button>
+            <span id="a_timeslot_notimeslots" class="feedback-alert" style="display: none;">There are no available timeslots left</span>
+          </div>
+          <div>
+            <label>Message to Teacher</label>
+            <textarea id="a_parentmessage" style="width: 400px; height: 4em;"></textarea>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

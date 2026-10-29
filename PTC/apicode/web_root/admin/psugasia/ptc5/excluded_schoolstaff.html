@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Excluded Teachers</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const curSchoolID = '~(curschoolid)';
+
+    async function loadSearchSelect() {
+      let filterList = await getPQ(
+        'com.psugasia.ptc5.general.teachers', 
+        0, 
+        {
+          'schoolid': curSchoolID
+        },
+        [
+          'dcid',
+          'lastfirst',
+          'teachernumber'
+        ],
+        false
+      );
+
+      $j('#sr_filter').empty();
+      filterList.forEach(function(v, i, a) {
+        $j('#sr_filter').append('<option value="'+v.dcid+'">'+v.lastfirst+' ('+v.teachernumber+')</option>');
+      });
+      $j('#sr_filter').chosen({
+        no_results_text: "Oops, nothing found!"
+      });
+    }
+
+    async function loadExcludes() {
+      if (DataTable.isDataTable('#table_excluded')) {
+        let table = new DataTable('#table_excluded');
+        table.destroy();
+        $j('#table_excluded tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      let tableData = await getPQ(
+        'com.psugasia.ptc5.excluded.schoolstaff', 
+        0, 
+        {
+          'schoolid': curSchoolID
+        },
+        [
+          'schoolstaffdcid',
+          'lastfirst',
+          'teachernumber',
+          'title',
+          'email_addr',
+          'homeroom',
+          'excluded'
+        ],
+        false
+      );
+
+      let columns = [
+        { name: "lastfirst", title: "Teacher Name", data: 'lastfirst', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<a href="/admin/faculty/home.html?frn=005'+row.schoolstaffdcid+'&gs=true" target="_blank">'+data+'</a>';
+          else
+            return data;
+        } },
+        { name: "teachernumber", title: "Teacher Number", data: 'teachernumber' },
+        { name: "title", title: "Title", data: 'title' },
+        { name: "email_addr", title: "Email Address", data: 'email_addr' },
+        { name: "homeroom", title: "Homeroom", data: 'homeroom' },
+        { name: "excluded", title: "", data: 'excluded', class: "centered", sortable: false, render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="deleteExclude(this)">Remove</button>';
+          else
+            return data;
+        } }
+      ];
+
+      let table = new DataTable('#table_excluded', {
+        data: tableData,
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: columns,
+        order: [[0, 'asc'], [1, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.schoolstaffdcid);
+        }
+      });
+
+      if (tableData.length > 0) {
+        table.columns().flatten().each(function(colIdx) {
+          let column = columns[colIdx];
+          switch(column.name) {
+            case 'lastfirst':
+            case 'teachernumber':
+            case 'title':
+            case 'email_addr':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'homeroom':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+          }
+        });
+      }
+
+      refreshSearchSelect();
+    }
+
+    async function refreshSearchSelect() {
+      await loadSearchSelect();
+      let dTable = new DataTable('#table_excluded');
+      dTable.data().each(function(data) {
+        $j('#sr_filter option[value="'+data.schoolstaffdcid+'"]').remove();
+      });
+      $j('#sr_filter').trigger("chosen:updated");
+    }
+
+    async function addExclude() {
+      let api = await fetch("/ws/schema/table/u_schoolstaff_ptc5", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "tables": {
+            "u_schoolstaff_ptc5": {
+              "schoolstaffdcid": $j('#sr_filter').val(),
+              "excluded": '1'
+            }
+          }
+        })
+      });
+      const response = await api.json();
+      if (response?.result[0]?.status == 'SUCCESS') {
+        loadExcludes();
+      }
+      else {
+        alert("There was a problem processing your request, please try again");
+      }
+    }
+
+    async function deleteExclude(e) {
+      if (confirm("Are you sure you want to delete this record?")) {
+        let recordID = $j(e).closest('tr').data('recordid');
+        let api = await fetch("/ws/schema/table/u_schoolstaff_ptc5/"+recordID, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            "tables": {
+              "u_schoolstaff_ptc5": {
+                "excluded": '0'
+              }
+            }
+          })
+        });
+        const response = await api.json();
+        if (response?.result[0]?.status == 'SUCCESS') {
+          loadExcludes();
+        }
+        else {
+          alert("There was a problem processing your request, please try again");
+        }
+      }
+    }
+
+    $j(function() {
+      loadSearchSelect();
+      loadExcludes();
+      //loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+    .changed {
+      background-color: plum !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Excluded Teachers
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Excluded Teachers</h1> 
+<!-- start of content area --> 
+
+  <div class="feedback-info">
+    <ul>
+      <li>Sections of Excluded Teachers will not be included in PTC signup list.</li>
+      <li>Exclusions will be honored across all sessions.</li>
+      <li>The final exclusion list is a sum of all exclusion types, therefore you do not need to create overlapping exclusions (eg if course A is already excluded, you do not need to exclude sections of course A)</li>
+    </ul>
+  </div>
+
+  <fieldset>
+    <div>
+      <label for="sr_filter">Teacher</label>
+      <select id="sr_filter" data-placeholder="Choose a student..."></select>
+    </div>
+    <div class="button-row">
+      <button type="button" onclick="addExclude()">Add New Exclusion</button>
+    </div>
+  </fieldset>
+
+  <div class="box-round" style="padding: 10px;">
+    <h2>Already Excluded Teachers</h2>
+    <table class="display compact" id="table_excluded">
+      <thead>
+        <tr>
+          <th>Teacher Name</th>
+          <th>Teacher Number</th>
+          <th>Title</th>
+          <th>Email Address</th>
+          <th>Homeroom</th>
+          <th class="alwaysshow noexport"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th class="centered"></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

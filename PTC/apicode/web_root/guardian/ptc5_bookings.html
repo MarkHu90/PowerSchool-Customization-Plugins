@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.title]</title>
+<!-- start of page body --> 
+~[wc:guardian_header] 
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/sortable/sortable.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/fontawesome/css/all.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/sortable/sortable.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const params = {
+      a: '~(curschoolid)',
+      b: '~(curyearid)',
+      //b: '34',//debug
+      c: '~(studentrn)',
+      d: '~[if#student.isstudent]student[else#student]parent[/if#student]',
+      p: '~[x:userid;guardianid]', 
+      n: [~[tlist_sql;select studentsdcid from guardianstudent where guardianid = ~[x:userid;guardianid]]~(studentsdcid;js),[/tlist_sql]-1]
+    };
+
+    ~[tlist_sql;
+    select 
+    licensekey,
+    parentmessage
+
+    from u_ptc5_settings
+    
+    where rownum=1;]
+    const licenceKey = '~(licensekey;js)';
+    const enableParentMessage = (parseInt('~(parentmessage;js)') === 1 ? true : false);
+    [/tlist_sql]
+    let sessions;
+    let sessionIndex = sessionStorage.getItem('ptc5sessionindex_~(studentrn)');
+    let firstLoad = true;
+    const bc = new BroadcastChannel("ptc5");
+    let siblingBookings = [];
+
+    async function loadSessions(resetStorage) {
+      if (resetStorage)
+        sessionIndex = null;
+
+      $j('#button_switchsessions').hide();
+      $j('#div_opensession').hide();
+      $j('#div_multiplesessions').hide();
+      $j('#span_title').html('');
+      sessions = await getPQ(
+        'com.psugasia.ptc5.guardian.open', 
+        0, 
+        {
+          'a': params.a,
+          'b': params.b,
+          'c': params.c,
+          'd': params.d,
+          'p': params.p
+        },
+        [
+          'id',
+          'name',
+          'instructions',
+          'priority_limit',
+          'general_limit',
+          'ispriority',
+          'termdcids',
+          'checkteacherschedule',
+          'siblingtimeslots',
+          'studentmessage'
+        ],
+        false
+      );
+      if (sessions?.length === 0)
+        $j('#div_noopensessions').show();
+      else if (sessionIndex !== null)
+        showSession(sessionIndex);
+      else if (sessions?.length > 1) {
+        $j('#ul_multiplesessions').empty();
+        sessions.forEach(function(session, i) {
+          $j('#ul_multiplesessions').append('<li><button type="button" onclick="showSession('+i+')">'+session.name+'</button></li>');
+        });
+        $j('#div_multiplesessions').show();
+      }
+      else
+        showSession(0);
+    }
+
+    async function showSession(index) {
+      loadingDialog();
+      sessionStorage.setItem('ptc5sessionindex_~(studentrn)', index);
+      sessionIndex = index;
+      let session = sessions[sessionIndex];
+      if (!sessions[sessionIndex])
+        loadSessions(true);
+
+      if (sessions.length > 1) $j('#button_switchsessions').show();
+
+      $j('#div_multiplesessions').hide();
+      $j('#div_mustmeet').hide();
+
+      if (String(session.instructions).trim() != '')
+        $j('#r_instructions').html(session.instructions).show();
+      if (String(session.studentmessage).trim() != '')
+        $j('#r_studentmessage').html(session.studentmessage).show();
+      if (String(session.name).trim() != '')
+        $j('#span_title').html(' ('+session.name+')');
+      
+      //let termDCIDs = session.termdcids.split(',').filter(Number);
+      let termDCIDs = session.termdcids.slice(1,-1);
+
+      let sections =  await getPSJSON(
+        '/guardian/ptc5_sections.json',
+        {
+          a: params.a,
+          c: params.c,
+          e: termDCIDs,
+          f: session.id,
+          g: session.ispriority
+        },
+        [
+          'lastfirst',
+          'sectiondcid',
+          'course_name',
+          'section_number',
+          'schoolstaffdcid',
+          'teacher',
+          'room',
+          'onlineurl',
+          'pmmeid',
+          'message',
+          'pmmid',
+          'teachermessage'
+        ],
+        false
+      );
+
+      $j('#r_sections tbody').empty();
+      sections.forEach(function(section) {
+        let trHTML  = $j('<tr data-sectiondcid="'+section.sectiondcid+'">'
+                      + '<td class="course" data-sort="'+section.course_name+'">'+section.course_name+'</td>'
+                      + '<td class="section">'+section.section_number+'</td>'
+                      + '<td class="teacher">'+section.teacher+'</td>'
+                      + '<td class="timeslot"></td>'
+                      + '<td class="book centered"></td>'
+                    + '</tr>');
+        $j('#r_sections tbody').append(trHTML);
+        trHTML.data('section', section);
+        if (section.pmmeid || section.pmmid) {
+          trHTML.addClass('mustmeet');
+          $j('td.course', trHTML).prepend('<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i> ');
+          $j('td.course', trHTML).attr('data-sort', '!'+section.course_name);
+          $j('#div_mustmeet').show();
+          if (section.message || section.teachermessage)
+            $j('td.course', trHTML).append('<div class="mustmeetmessage preserveLineBreaks">'+(section.message || section.teachermessage)+'</div>');
+        }
+      });
+
+      let familyBookings = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+        {
+          a: licenceKey,
+          b: session.id,
+          //c: params.c,
+          n: params.n,
+          h: 'booked'
+        },
+        [
+          'id',
+          'timeslotid',
+          'sectiondcid',
+          'parentmessage',
+          'lastupdated',
+          'studentdcid'
+        ],
+        false
+      );
+
+      if (familyBookings[0]?.error) {
+        $j('#div_noopensessions').hide();
+        $j('#div_multiplesessions').hide();
+        $j('#div_opensession').hide();
+        $j('#div_servererror').show();
+        closeLoading();
+        return;
+      }
+
+      let bookings = familyBookings.filter((e) => parseInt(e.studentdcid) === parseInt(params.c));
+      siblingBookings = familyBookings.filter((e) => parseInt(e.studentdcid) !== parseInt(params.c));
+
+      //await loadTimeslots(sessionIndex);
+
+      $j('#r_sections tbody tr').each(async function(k,v) {
+        let sectionDCID = $j(v).data('sectiondcid');
+        let booked = bookings.find((e) => parseInt(e.sectiondcid) === parseInt(sectionDCID));
+        let bookHTML;
+        let timeslotHTML;
+        if (booked) {
+          let timeslot = await getPQ(
+            'com.psugasia.ptc5.timeslots.single', 
+            0, 
+            {
+              'timeslotid': booked.timeslotid
+            },
+            [
+              'startdt',
+              'enddt'
+            ],
+            true
+          );
+          //let timeslot = timeslotsList.find((e) => parseInt(e.id) === parseInt(booked.timeslotid));
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          //timeslotHTML = String(timeslot.startdt).replaceAll('T',' ')+' - '+String(timeslot.enddt).replaceAll('T',' ');
+          timeslotHTML = startT+' - '+endT+' ('+startD+')';
+          bookHTML = '<button type="button" onclick="changeBooking(this)">~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.change]</button>';
+          $j(v).data('booked', booked);
+          $j('td.timeslot', v).attr('data-sort', timeslot.startdt);
+          $j('td.timeslot', v).attr('data-startdt', timeslot.startdt);
+          $j('td.timeslot', v).attr('data-enddt', timeslot.enddt);
+        }
+        else {
+          timeslotHTML = '';
+          bookHTML = '<button type="button" onclick="changeBooking(this)">~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.book]</button>';
+        }
+        $j('td.timeslot', v).html(timeslotHTML);
+        $j('td.book', v).html(bookHTML);
+      });
+
+      if (firstLoad) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        document.getElementById('r_sections_course').click();
+        firstLoad = false;
+      }
+      else {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        document.getElementById('r_sections_course').click();
+        document.getElementById('r_sections_course').click();
+      }
+
+      $j('#div_opensession').show();
+      closeLoading();
+    }
+
+    async function changeBooking(e) {
+      $j('#p_taken').hide();
+      $j('#r_timeslot_notimeslots').hide();
+      $j('#r_timeslot').show();
+      $j('#r_reloadtimeslots').show();
+
+      let tr = $j(e).closest('tr');
+      let booked = $j(tr).data('booked');
+      let section = $j(tr).data('section');
+      //console.log(booked);
+      let session = sessions[sessionIndex];
+
+      if (!booked) {
+        let bookedCount = 0;
+        $j('#r_sections tbody tr').not('.mustmeet').each(function(k,v) {
+          if ($j(v).data('booked'))
+            bookedCount++;
+        });
+
+        if (
+          (parseInt(session.ispriority) === 1 && (parseInt(session.priority_limit) !== 0 && bookedCount >= parseInt(session.priority_limit)))
+          ||
+          (parseInt(session.ispriority) === 0 && (parseInt(session.general_limit) !== 0 && bookedCount >= parseInt(session.general_limit)))
+        ) {
+          alert("~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.youhavereachedthebookinglimit]");
+          return;
+        }
+      }
+
+      let mustMeetBooked = 0;
+      $j('#r_sections tbody tr.mustmeet').each(function(k,v) {
+        if ($j(v).data('booked'))
+          mustMeetBooked++;
+      });
+
+      if (!$j(tr).hasClass('mustmeet') && $j('#r_sections tbody tr.mustmeet').length != mustMeetBooked) {
+        alert("~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.pleasemakebookingsforthecoursesmarkedinredfirst]");
+        return;
+      }
+
+      $j('#dialog_booking span.record').empty();
+      $j('#dialog_booking select').empty();
+      $j('#dialog_booking textarea').empty();
+
+      $j('#r_course').html(section.course_name);
+      $j('#r_section').html(section.section_number);
+      $j('#r_teacher').html(section.teacher);
+      $j('#r_location').html(section.room);
+      $j('#r_parentmessage').val(booked?.parentmessage);
+
+      if (section.pmmeid || section.pmmid) {
+        $j('#r_course').prepend('<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i> ');
+        if (section.message || section.teachermessage) {
+          $j('#r_course').append('<div class="mustmeetmessage preserveLineBreaks">'+(section.message || section.teachermessage)+'</div>');
+        }
+      }
+
+      let onlineURL = '';
+      if (String(section.onlineurl).startsWith('http'))
+        onlineURL = section.onlineurl+' <a href="'+section.onlineurl+'" class="button" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>';
+      $j('#r_url').html(onlineURL);
+
+      if (!$j(tr).data('timeslots')) {
+        let timeslots = await getPQ(
+          'com.psugasia.ptc5.guardian.section.timeslots', 
+          0, 
+          {
+            'c': params.c,
+            'f': session.id,
+            'g': session.ispriority,
+            'h': section.sectiondcid,
+            'i': section.schoolstaffdcid,
+            'k': (section.pmmeid || section.pmmid ? 1 : 0)
+          },
+          [
+            'id',
+            'startdt',
+            'enddt',
+            'capacity'
+          ],
+          false
+        );
+
+        if (parseInt(session.checkteacherschedule) === 1) {
+          //remove timelots that clash with teacher's schedule
+          let m = '';
+          timeslots.forEach(function(t) {
+            m += t.id+','
+          });
+          m = m.slice(0,-1);
+
+          let response =  await getPSJSON(
+            '/guardian/ptc5_teacherschedule.json',
+            {
+              b: params.b,
+              f: session.id,
+              i: section.schoolstaffdcid,
+              m: m
+            },
+            [
+              'id'
+            ],
+            false
+          );
+
+          let r = [];
+          response.forEach((re) => r.push(re.id));
+          timeslots = timeslots.filter((t) => r.includes(t.id));
+          $j(tr).data('timeslots', timeslots);
+        }
+        else
+          $j(tr).data('timeslots', timeslots);
+      }
+
+      $j('#r_reloadtimeslots').off('click');
+      $j('#r_reloadtimeslots').on('click', function(){
+        getAvailableTimeslots(tr);
+      });
+      
+      await getAvailableTimeslots(tr);
+
+      if (!enableParentMessage)
+        $j('#div_parentmessage').remove();
+
+      $j('#dialog_booking').dialog({
+        modal: true,
+        width: 750,
+        height: 550,
+        buttons: [
+          {
+            text: (booked ? '~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.changebooking]' : '~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.makebooking]'),
+            click: async function() {
+              let dialog = this;
+              if (!$j('#r_timeslot').val()) {
+                alert("~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.pleasepickatimeslot]");
+                return;
+              }
+            
+              loadingDialog();
+
+              if (booked) {
+                if (parseInt($j('#r_timeslot').val()) === parseInt($j('#r_timeslot').data('existing'))) {
+                  let response = await getPHP(
+                    'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+                    {
+                      a: licenceKey,
+                      b: session.id,
+                      c: params.c,
+                      h: 'message',
+                      j: booked.id,
+                      k: $j('#r_parentmessage').val()
+                    },
+                    [
+                      'result'
+                    ],
+                    true
+                  );
+
+                  if (response?.error) {
+                    $j('#p_servererror').show();
+                    closeLoading();
+                  }
+                  else if (response?.result == 'success') {
+                    showSession(sessionIndex);
+                    //closeLoading();
+                    $j(dialog).dialog("close");
+                  }
+                  else {
+                    $j('#p_taken').show();
+                    closeLoading();
+                  }
+                }
+                else {
+                  let m = '';
+                  if (section.pmmeid)
+                    m = 'e';
+                  else if (section.pmmid)
+                    m = 't';
+                  let response = await getPHP(
+                    'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+                    {
+                      a: licenceKey,
+                      b: session.id,
+                      c: params.c,
+                      d: $j('#r_timeslot').val(),
+                      e: $j('#r_timeslot option:selected').data('capacity'),
+                      f: section.sectiondcid,
+                      g: section.schoolstaffdcid,
+                      h: 'change',
+                      j: booked.id,
+                      k: $j('#r_parentmessage').val(),
+                      l: booked.timeslotid,
+                      m: m
+                    },
+                    [
+                      'result'
+                    ],
+                    true
+                  );
+
+                  if (response?.error) {
+                    $j('#p_servererror').show();
+                    closeLoading();
+                  }
+                  else if (response?.result == 'success') {
+                    showSession(sessionIndex);
+                    //closeLoading();
+                    $j(dialog).dialog("close");
+                  }
+                  else {
+                    $j('#p_taken').show();
+                    closeLoading();
+                  }
+                }
+              }
+              else { //mode = book
+                let m = '';
+                if (section.pmmeid)
+                  m = 'e';
+                else if (section.pmmid)
+                  m = 't';
+                let response = await getPHP(
+                  'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+                  {
+                    a: licenceKey,
+                    b: session.id,
+                    c: params.c,
+                    d: $j('#r_timeslot').val(),
+                    e: $j('#r_timeslot option:selected').data('capacity'),
+                    f: section.sectiondcid,
+                    g: section.schoolstaffdcid,
+                    h: 'book',
+                    k: $j('#r_parentmessage').val(),
+                    m: m
+                  },
+                  [
+                    'result'
+                  ],
+                  true
+                );
+
+                if (response?.error) {
+                  $j('#p_servererror').show();
+                  closeLoading();
+                }
+                else if (response?.result == 'success') {
+                  showSession(sessionIndex);
+                  //closeLoading();
+                  $j(dialog).dialog("close");
+                }
+                else {
+                  $j('#p_taken').show();
+                  closeLoading();
+                }
+              }
+            }
+          },
+          {
+            text: (booked ? '~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.cancelbooking]' : '~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.cancel]'),
+            click: async function() {
+              let dialog = this;
+
+              if (booked) { //mode = unbook
+                let response = await getPHP(
+                  'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+                  {
+                    a: licenceKey,
+                    b: session.id,
+                    c: params.c,
+                    f: section.sectiondcid,
+                    h: 'unbook',
+                    j: booked.id,
+                    l: booked.timeslotid
+                  },
+                  [
+                    'result'
+                  ],
+                  true
+                );
+
+                if (response?.error) {
+                  $j('#p_servererror').show();
+                  closeLoading();
+                }
+                else if (response?.result == 'success') {
+                  showSession(sessionIndex);
+                  //closeLoading();
+                  $j(dialog).dialog("close");
+                }
+              }
+              else {
+                $j(dialog).dialog("close");
+              }
+            }
+          }
+        ],
+        open: function() {
+          if (booked) {
+            if ($j('#r_timeslot option').length <= 2)
+              $j(this).dialog('widget').find('button.ui-button').eq(1).prop('disabled', true);
+          }
+          else {
+            if ($j('#r_timeslot option').length <= 1)
+              $j(this).dialog('widget').find('button.ui-button').eq(1).prop('disabled', true);
+          }
+        }
+      });
+    }
+
+    async function getAvailableTimeslots(tr) {
+      loadingDialog();
+      //let tr = $j('#r_sections tr[data-sectiondcid="'+sectionDCID+'"]');
+      let session = sessions[sessionIndex];
+      let booked = $j(tr).data('booked');
+      let section = $j(tr).data('section');
+      let timeslots = $j(tr).data('timeslots');
+      let otherBookedTimeslots = [];
+      //check session setting
+      if (parseInt(session.siblingtimeslots) === 1) {
+        //add siblingBookings to otherBookedTimeslots
+        for (let b of siblingBookings) {
+          otherBookedTimeslots.push(b.timeslotid);
+        }
+      }
+      $j('#r_sections tbody tr').not('[data-sectiondcid="'+section.sectiondcid+'"]').each(function(k,v) {
+        if ($j(v).data('booked')) {
+          otherBookedTimeslots.push($j(v).data('booked').timeslotid);
+        }
+      });
+
+      let taken = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+        {
+          a: licenceKey,
+          b: session.id,
+          //c: params.c,
+          g: section.schoolstaffdcid,
+          h: 'taken'
+        },
+        [
+          'id',
+          'timeslotid'
+        ],
+        false
+      );
+
+      if (taken[0]?.error) {
+        $j('#div_servererror').show();
+        closeLoading();
+        return;
+      }
+
+      //console.log(taken);
+
+      $j('#r_timeslot').empty();
+      $j('#r_timeslot').append('<option value=""></option>');
+      //console.log(booked);
+      //console.log(otherBookedTimeslots);
+
+      //remove timeslots that clash with existing bookings
+      let existingBookings = [];
+      $j('#r_sections tbody tr').each(function(k,row) {
+        let startDT = $j('td.timeslot', row).data('startdt');
+        let endDT = $j('td.timeslot', row).data('enddt');
+        let rowSection = $j(row).data('section');
+        let rowSectionDCID = rowSection.sectiondcid;
+        if (startDT && endDT && rowSectionDCID != section.sectiondcid) { //exclude self row
+          existingBookings.push({startdt: startDT, enddt: endDT});
+        }
+      });
+
+      if (existingBookings.length > 0 && timeslots.length > 0) {
+        existingBookings.forEach(function(booking) {
+          for(let i = timeslots.length - 1; i >= 0; i--) {
+            if (overlappingDateTimes(new Date(booking.startdt), new Date(booking.enddt), new Date(timeslots[i].startdt), new Date(timeslots[i].enddt))) {
+              timeslots.splice(i, 1);
+            }
+          }
+        });
+      }
+
+      timeslots.forEach(function(timeslot) {
+        //console.log(timeslot);
+        if (
+          (
+            taken.filter(e => parseInt(e.timeslotid) === parseInt(timeslot.id)).length < parseInt(timeslot.capacity)
+            //taken not over timeslot capacity
+            &&
+            !otherBookedTimeslots.includes(parseInt(timeslot.id))
+            //not self booked timeslot for another section
+          )
+          ||
+          parseInt(timeslot.id) === parseInt(booked?.timeslotid)
+          //is booked timeslot
+        ) {
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          //let optionHTML = '<option value="'+timeslot.id+'">'+String(timeslot.startdt).replaceAll('T',' ')+' - '+String(timeslot.enddt).replaceAll('T',' ')+'</option>';
+          let optionHTML = '<option value="'+timeslot.id+'" data-capacity="'+timeslot.capacity+'">'+startT+' - '+endT+' ('+startD+')</option>';
+          $j('#r_timeslot').append(optionHTML);
+        }
+      });
+
+      if (booked?.timeslotid) {
+        $j('#r_timeslot').val(booked?.timeslotid);
+        $j('#r_timeslot').data('existing', booked?.timeslotid);
+      }
+
+      if ($j('#r_timeslot option').length === 1) {
+        $j('#r_timeslot').hide();
+        $j('#r_reloadtimeslots').hide();
+        $j('#r_timeslot_notimeslots').show();
+      }
+      closeLoading();
+    }
+
+    $j(function() {
+      bc.postMessage("ptc5 tab");
+
+      bc.onmessage = (event) => {
+        if (event.data == 'ptc5 tab') {
+          $j('#div_noopensessions').hide();
+          $j('#div_multiplesessions').hide();
+          $j('#div_opensession').hide();
+          $j('#div_duplicatetabs').show();
+        }
+      };
+
+      loadSessions();
+    });
+  </script>
+  <style>
+    #button_switchsessions {
+      margin: 25px 20px;
+      display: none;
+    }
+    #ul_multiplesessions {
+      margin-inline-start: 0;
+    }
+    #ul_multiplesessions li {
+      list-style:none;
+    }
+    #r_timeslot_notimeslots {
+      display: inline-block;
+      margin: 0;
+    }
+    tr.mustmeet {
+      background-color: plum !important;
+    }
+    div.mustmeetmessage {
+      color: red !important;
+    }
+    #span_title {
+      font-size: 100%;
+      font-weight: bold;
+      float: unset;
+    }
+    div.box-round > p:first-child {
+      margin-top: 0;
+    }
+  </style>
+
+<div style="display: flex; justify-content: space-between;">
+  <div><h1>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.title]<span id="span_title"></span></h1></div>
+  <div><button type="button" id="button_switchsessions" onclick="loadSessions(true)">~[text:psx.htmlc.guardian.psugasia_ptc5.switchsession]</button></div>
+</div>
+  
+<!-- start student content --> 
+
+<ul class="tabs shown_tabs">
+  <li class="selected">
+    <a href="ptc5_bookings.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.makeeditbookings]</a>
+  </li>
+  <li>
+    <a href="ptc5_myschedule.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.myschedule]</a>
+  </li>
+  <li>
+    <a href="ptc5_familyschedule.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.familyschedule]</a>
+  </li>
+</ul>
+
+<div class="feedback-info" id="div_noopensessions" style="display: none;">
+  ~[text:psx.htmlc.guardian.psugasia_ptc5.noopensessions]
+</div>
+
+<div class="box-round" id="div_multiplesessions" style="display: none;">
+  <p>
+    ~[text:psx.htmlc.guardian.psugasia_ptc5.multiplesessions]
+    <ul id="ul_multiplesessions"></ul>
+  </p>
+</div>
+
+<div class="feedback-alert" id="div_duplicatetabs" style="display: none;">
+  ~[text:psx.htmlc.guardian.psugasia_ptc5.duplicatetabs]
+</div>
+
+<div class="feedback-error" id="div_servererror" style="display: none;">
+  ~[text:psx.htmlc.guardian.psugasia_ptc5.servererror]
+</div>
+
+<div class="box-round" id="div_opensession" style="display: none; padding-top: 10px;">
+  <p id="r_instructions" style="display: none;"></p>
+  <p id="r_studentmessage" style="display: none;"></p>
+  <p id="div_mustmeet" class="feedback-alert" style="display: none;">
+    ~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.pleasemakebookingsforallcoursesmarkedwith]<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i>
+  </p>
+  <table class="grid sortable asc" id="r_sections" style="margin-top: 10px;">
+    <thead>
+      <tr>
+        <th id="r_sections_course">~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.course]</th>
+        <th>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.section]</th>
+        <th>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.teacher]</th>
+        <th>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.existingbooking]</th>
+        <th class="no-sort"></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="dialog_booking" title="Booking Details" style="display: none;">
+    <input type="hidden" autofocus>
+    <p class="feedback-info">
+      ~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.pleaseselectthetimeslotyouwanttobook]
+    </p>
+    <fieldset>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.course2]</label>
+        <span id="r_course" class="record"></span>
+      </div>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.section2]</label>
+        <span id="r_section" class="record"></span>
+      </div>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.teacher2]</label>
+        <span id="r_teacher" class="record"></span>
+      </div>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.location]</label>
+        <span id="r_location" class="record"></span>
+      </div>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.onlinemeetingurl]</label>
+        <span id="r_url" class="record"></span>
+      </div>
+      <div>
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.timeslot]</label>
+        <select id="r_timeslot"></select>
+        <button type="button" id="r_reloadtimeslots"><i class="fa-solid fa-rotate"></i></button>
+        <span id="r_timeslot_notimeslots" class="feedback-alert" style="display: none;">~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.theselectedtimeslothasalreadybeentaken]</span>
+      </div>
+      <div id="div_parentmessage">
+        <label>~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.messagetoteacher]</label>
+        <textarea id="r_parentmessage" style="width: 300px; height: 4em;"></textarea>
+      </div>
+    </fieldset>
+    <p class="feedback-error" id="p_taken" style="display: none;">
+      ~[text:psx.htmlc.guardian.psugasia_ptc5.bookings.theselectedtimeslothasalreadybeentaken]
+    </p>
+    <p class="feedback-error" id="p_servererror" style="display: none;">
+      ~[text:psx.htmlc.guardian.psugasia_ptc5.servererror]
+    </p>
+  </div>
+
+</div>
+<!-- end student content --> 
+<!-- Sets the navigation highlighting: the value is the ID value of the navigation element you want to highlight--> 
+<input id="activeNav" type="hidden" value="#btn-ptc5"/> 
+<!-- end of page body --> 
+~[wc:guardian_footer] 
+</body> 
+</html>

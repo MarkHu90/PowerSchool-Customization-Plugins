@@ -1,0 +1,8 @@
+~[if#parent.isguardian]
+<style>
+  #btn-attendancenotices {background-image: url("/images/icon-attendancenotices.png"); background-size: 32px 32px;}
+</style>
+<script>
+  jQuery("#nav-main ul").first().append('<li id="btn-attendancenotices" role="menuitem"><a href="/guardian/attendancenotices.html">~[text:psx.htmlc.guardian.attendancenotices.title]</a></li>');
+</script>
+[/if#parent.isguardian]

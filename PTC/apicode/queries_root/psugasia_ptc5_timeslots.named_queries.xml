@@ -1,0 +1,286 @@
+<queries>
+  <query name="com.psugasia.ptc5.timeslots.list" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="coursedcid" type="primitive" required="true" />
+      <arg name="sectiondcid" type="primitive" required="true" />
+      <arg name="schoolstaffdcid" type="primitive" required="true" />
+      <arg name="daterange1" type="primitive" required="true" />
+      <arg name="daterange2" type="primitive" required="true" />
+      <arg name="status" type="primitive" required="true" />
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.id</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+      <column column="u_ptc5_timeslots.grade_levels">result.grade_levels</column>
+      <column column="u_ptc5_timeslots.priorityonly">result.priorityonly</column>
+      <column column="u_ptc5_timeslots.admin">result.admin</column>
+      <column column="u_ptc5_timeslots.mustmeet">result.mustmeet</column>
+      <column column="u_ptc5_timeslots.capacity">result.capacity</column>
+      <column column="u_ptc5_timeslots.remarks">result.remarks</column>
+      <column column="u_ptc5_timeslots.status">result.status</column>
+      <column column="u_ptc5_timeslots.id">result.coursescount</column>
+      <column column="u_ptc5_timeslots.id">result.sectionscount</column>
+      <column column="u_ptc5_timeslots.id">result.schoolstaffcount</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pt.id,
+pt.startdt,
+pt.enddt,
+pt.grade_levels,
+pt.priorityonly,
+pt.admin,
+pt.mustmeet,
+pt.capacity,
+to_char(pt.remarks) as remarks,
+pt.status,
+count(distinct ptc.id) as coursescount,
+count(distinct pts.id) as sectionscount,
+count(distinct ptu.id) as schoolstaffcount
+
+from u_ptc5_timeslots pt
+left outer join u_ptc5_timeslots_courses ptc on pt.id = ptc.u_ptc5_timeslotsid
+left outer join u_ptc5_timeslots_sections pts on pt.id = pts.u_ptc5_timeslotsid
+left outer join u_ptc5_timeslots_schoolstaff ptu on pt.id = ptu.u_ptc5_timeslotsid
+
+where
+pt.u_ptc5_sessionsid = :sessionid
+and (:coursedcid = -1 or ptc.coursedcid = :coursedcid)
+and (:sectiondcid = -1 or pts.sectiondcid = :sectiondcid)
+and (:schoolstaffdcid = -1 or ptu.schoolstaffdcid = :schoolstaffdcid)
+and (:daterange1 is null or pt.startdt >= :daterange1)
+and (:daterange2 is null or pt.enddt <= :daterange2)
+and (:status = -1 or nvl(pt.status,0) = :status)
+and (:timeslotid = -1 or pt.id = :timeslotid)
+
+group by
+pt.id,
+pt.startdt,
+pt.enddt,
+pt.grade_levels,
+pt.priorityonly,
+pt.admin,
+pt.mustmeet,
+pt.capacity,
+to_char(pt.remarks),
+pt.status
+
+order by pt.startdt, pt.enddt
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.single" flattened="true">
+    <args>
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.id</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+      <column column="u_ptc5_timeslots.grade_levels">result.grade_levels</column>
+      <column column="u_ptc5_timeslots.priorityonly">result.priorityonly</column>
+      <column column="u_ptc5_timeslots.admin">result.admin</column>
+      <column column="u_ptc5_timeslots.mustmeet">result.mustmeet</column>
+      <column column="u_ptc5_timeslots.capacity">result.capacity</column>
+      <column column="u_ptc5_timeslots.remarks">result.remarks</column>
+      <column column="u_ptc5_timeslots.status">result.status</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pt.id,
+pt.startdt,
+pt.enddt,
+pt.grade_levels,
+pt.priorityonly,
+pt.admin,
+pt.mustmeet,
+pt.capacity,
+pt.remarks,
+pt.status
+
+from u_ptc5_timeslots pt
+
+where
+pt.id = :timeslotid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.single.courses" flattened="true">
+    <args>
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots_courses.id">result.id</column>
+      <column column="u_ptc5_timeslots_courses.coursedcid">result.coursedcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="courses.course_number">result.course_number</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+ptc.id,
+ptc.coursedcid,
+c.course_name,
+c.course_number
+
+from u_ptc5_timeslots_courses ptc
+inner join courses c on ptc.coursedcid = c.dcid
+
+where
+ptc.u_ptc5_timeslotsid = :timeslotid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.single.sections" flattened="true">
+    <args>
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots_sections.id">result.id</column>
+      <column column="u_ptc5_timeslots_sections.sectiondcid">result.sectiondcid</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="courses.course_name">result.course_name</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pts.id,
+pts.sectiondcid,
+e.course_number||'.'||e.section_number as section_number,
+c.course_name
+
+from u_ptc5_timeslots_sections pts
+inner join sections e on pts.sectiondcid = e.dcid
+inner join courses c on e.course_number = c.course_number
+
+where
+pts.u_ptc5_timeslotsid = :timeslotid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.single.users" flattened="true">
+    <args>
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots_schoolstaff.id">result.id</column>
+      <column column="u_ptc5_timeslots_schoolstaff.schoolstaffdcid">result.schoolstaffdcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+ptu.id,
+ptu.schoolstaffdcid,
+t.lastfirst
+
+from u_ptc5_timeslots_schoolstaff ptu
+inner join teachers t on ptu.schoolstaffdcid = t.dcid
+
+where
+ptu.u_ptc5_timeslotsid = :timeslotid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.blocked.list" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="daterange1" type="primitive" required="true" />
+      <arg name="daterange2" type="primitive" required="true" />
+      <arg name="schoolstaffdcid" type="primitive" required="true" />
+      <arg name="status" type="primitive" required="true" />
+      <arg name="blockid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.timeslotid</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+      <column column="u_ptc5_timeslots_blocked.id">result.blockid</column>
+      <column column="u_ptc5_timeslots_blocked.schoolstaffdcid">result.schoolstaffdcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="u_ptc5_timeslots_blocked.requester">result.requester</column>
+      <column column="u_ptc5_timeslots_blocked.approver">result.approver</column>
+      <column column="u_ptc5_timeslots_blocked.status">result.status</column>
+      <column column="u_ptc5_timeslots_blocked.remarks">result.remarks</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pt.id as timeslotid,
+pt.startdt,
+pt.enddt,
+ptb.id as blockid,
+ptb.schoolstaffdcid,
+t.lastfirst,
+ptb.requester,
+ptb.approver,
+ptb.status,
+ptb.remarks
+
+from u_ptc5_timeslots pt
+inner join u_ptc5_timeslots_blocked ptb on pt.id = ptb.u_ptc5_timeslotsid
+inner join teachers t on ptb.schoolstaffdcid = t.dcid
+
+where
+pt.u_ptc5_sessionsid = :sessionid
+and nvl(pt.status,0) = 1
+and (:daterange1 is null or pt.startdt >= :daterange1)
+and (:daterange2 is null or pt.enddt <= :daterange2)
+and (:schoolstaffdcid = -1 or ptb.schoolstaffdcid = :schoolstaffdcid)
+and (:status = -1 or ptb.status = :status)
+and (:blockid = -1 or ptb.id = :blockid)
+
+order by pt.startdt, pt.enddt
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.timeslots.list.block" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="daterange1" type="primitive" required="true" />
+      <arg name="daterange2" type="primitive" required="true" />
+      <arg name="schoolstaffdcid" type="primitive" required="true" />
+      <arg name="timeslotid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.timeslotid</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+      <column column="u_ptc5_timeslots_blocked.id">result.blockid</column>
+      <column column="u_ptc5_timeslots_blocked.status">result.status</column>
+      <column column="u_ptc5_timeslots_blocked.requester">result.requester</column>
+      <column column="u_ptc5_timeslots_blocked.approver">result.approver</column>
+      <column column="u_ptc5_timeslots_blocked.remarks">result.remarks</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pt.id as timeslotid,
+pt.startdt,
+pt.enddt,
+ptb.id as blockid,
+ptb.status,
+ptb.requester,
+ptb.approver,
+ptb.remarks
+
+from u_ptc5_timeslots pt
+left outer join u_ptc5_timeslots_blocked ptb on pt.id = ptb.u_ptc5_timeslotsid and ptb.schoolstaffdcid = :schoolstaffdcid
+
+where
+pt.u_ptc5_sessionsid = :sessionid
+and nvl(pt.status,0) = 1
+and (:daterange1 is null or pt.startdt >= :daterange1)
+and (:daterange2 is null or pt.enddt <= :daterange2)
+and (:timeslotid = '-1' or pt.id = :timeslotid)
+
+order by pt.startdt, pt.enddt
+]]>
+    </sql>
+  </query>
+</queries>

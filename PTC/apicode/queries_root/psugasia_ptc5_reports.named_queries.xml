@@ -1,0 +1,213 @@
+<queries>
+  <query name="com.psugasia.ptc5.reports.studentswithlessthannbookings" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.id">result.studentid</column>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="students.student_number">result.student_number</column>
+      <column column="students.grade_level">result.grade_level</column>
+      <column column="students.home_room">result.home_room</column>
+      <column column="students.lastfirst">result.parents</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+s.id as studentid,
+s.dcid as studentdcid,
+s.lastfirst,
+s.student_number,
+s.grade_level,
+s.home_room,
+(
+  select
+  listagg(p.lastname||', '||p.firstname||' ('||nvl(cr.displayvalue, cr.code)||')') within group (order by nvl(cr.displayvalue, cr.code)) as parents
+
+  from studentcontactassoc sca
+  inner join studentcontactdetail scd on sca.studentcontactassocid = scd.studentcontactassocid and trunc(sysdate) between trunc(nvl(scd.startdate,sysdate)) and trunc(nvl(scd.enddate,sysdate))
+  inner join person p on sca.personid = p.id
+  inner join codeset cr on scd.relationshiptypecodesetid = cr.codesetid
+
+  where
+  sca.studentdcid = s.dcid
+  and (
+    lower(cr.code) like '%father%'
+    or
+    lower(cr.code) like '%mother%'
+  )
+  and lower(cr.codetype) = 'relationship'
+  and nvl(scd.isactive,0) = 1
+) as parents
+
+from u_ptc5_sessions ps
+inner join students s on ps.schoolid = s.schoolid
+
+where
+ps.id = :sessionid
+and s.enroll_status in (0,-1)
+and ps.grade_levels like '%,'||s.grade_level||',%'
+
+order by s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.reports.notbookedmustmeets" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.id">result.studentid</column>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="students.student_number">result.student_number</column>
+      <column column="students.grade_level">result.grade_level</column>
+      <column column="students.home_room">result.home_room</column>
+      <column column="students.lastfirst">result.parents</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.teacher</column>
+      <column column="sections.dcid">result.sectiondcid</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+s.id as studentid,
+s.dcid as studentdcid,
+s.lastfirst,
+s.student_number,
+s.grade_level,
+s.home_room,
+(
+  select
+  listagg(p.lastname||', '||p.firstname||' ('||nvl(cr.displayvalue, cr.code)||')') within group (order by nvl(cr.displayvalue, cr.code)) as parents
+
+  from studentcontactassoc sca
+  inner join studentcontactdetail scd on sca.studentcontactassocid = scd.studentcontactassocid and trunc(sysdate) between trunc(nvl(scd.startdate,sysdate)) and trunc(nvl(scd.enddate,sysdate))
+  inner join person p on sca.personid = p.id
+  inner join codeset cr on scd.relationshiptypecodesetid = cr.codesetid
+
+  where
+  sca.studentdcid = s.dcid
+  and (
+    lower(cr.code) like '%father%'
+    or
+    lower(cr.code) like '%mother%'
+  )
+  and lower(cr.codetype) = 'relationship'
+  and nvl(scd.isactive,0) = 1
+) as parents,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst as teacher,
+e.dcid as sectiondcid
+
+from u_ptc5_sessions ps
+inner join students s on ps.schoolid = s.schoolid
+inner join cc d on s.id = d.studentid
+inner join sections e on d.sectionid = e.id
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join courses c on e.course_number = c.course_number
+inner join teachers t on e.teacher = t.id
+left outer join u_ptc_mustmeetsections pmme on e.dcid = pmme.sectiondcid and pmme.u_ptc5_sessionsid = :sessionid
+left outer join u_ptc_mustmeet pmm on d.id = pmm.ccid and pmm.u_ptc5_sessionsid = :sessionid
+
+where
+ps.id = :sessionid
+and s.enroll_status in (0,-1)
+and ps.grade_levels like '%,'||s.grade_level||',%'
+and e.schoolid = (select schoolid from u_ptc5_sessions where id = :sessionid)
+and r.yearid = (select yearid from u_ptc5_sessions where id = :sessionid)
+and d.id not in (select ccid from u_ptc5_cc where u_ptc5_sessionsid = :sessionid and ccid is not null)
+and nvl(pmme.id,pmm.id) is not null
+
+order by s.lastfirst, c.course_name, section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.reports.studentslist" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.id">result.studentid</column>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="students.student_number">result.student_number</column>
+      <column column="students.grade_level">result.grade_level</column>
+      <column column="students.home_room">result.home_room</column>
+      <column column="u_students_ptc5.excluded">result.excluded</column>
+      <column column="u_students_ptc5.priorityonly">result.priorityonly</column>
+      <column column="u_students_ptc5.message">result.message</column>
+      <column column="schools.abbreviation">result.abbreviation</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+s.id as studentid,
+s.dcid as studentdcid,
+s.lastfirst,
+s.student_number,
+s.grade_level,
+s.home_room,
+nvl(sp.excluded,0) as excluded,
+nvl(sp.priorityonly,0) as priorityonly,
+sp.message,
+h.abbreviation
+
+from students s
+inner join u_students_ptc5 sp on s.dcid = sp.studentsdcid
+inner join schools h on s.schoolid = h.school_number
+
+where
+s.enroll_status in (0,-1)
+and (:schoolid = '0' or s.schoolid = :schoolid)
+
+order by h.abbreviation, s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.reports.teacherslist" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="teachers.id">result.teacherid</column>
+      <column column="teachers.dcid">result.teacherdcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="teachers.teachernumber">result.teachernumber</column>
+      <column column="teachers.title">result.title</column>
+      <column column="teachers.staffstatus">result.staffstatus</column>
+      <column column="u_schoolstaff_ptc5.excluded">result.excluded</column>
+      <column column="u_schoolstaff_ptc5.room">result.room</column>
+      <column column="u_schoolstaff_ptc5.onlineurl">result.onlineurl</column>
+      <column column="schools.abbreviation">result.abbreviation</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+t.id as teacherid,
+t.dcid as teacherdcid,
+t.lastfirst,
+t.teachernumber,
+t.title,
+t.staffstatus,
+nvl(hsp.excluded,0) as excluded,
+hsp.room,
+hsp.onlineurl,
+h.abbreviation
+
+from teachers t
+inner join u_schoolstaff_ptc5 hsp on t.dcid = hsp.schoolstaffdcid
+inner join schools h on t.schoolid = h.school_number
+
+where
+t.status = 1
+and (:schoolid = '0' or t.schoolid = :schoolid)
+
+order by h.abbreviation, t.lastfirst
+]]>
+    </sql>
+  </query>
+</queries>

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>~[if#new.~(gpv.id)=-1]New[else#new]Edit[/if#new] Session</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <script src="/scripts/dist/teacher_tools/components/shared/ckeditor/ckeditor.js"></script>
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const recordID = '~(gpv.id)';
+    let existingRecord = false;
+
+    $j(function() {
+      if (!recordID)
+        window.location.replace('sessions_list.html');
+      else {
+        if (parseInt(recordID) !== -1)
+          existingRecord = true;
+        loadRecord();
+      }
+    });
+
+    async function loadRecord() {
+      if (existingRecord) {
+        let record = await getPQ(
+          'com.psugasia.ptc5.sessions.single', 
+          0, 
+          {
+            'sessionid':recordID
+          },
+          [
+            'id',
+            'schoolid',
+            'yearid',
+            'name',
+            'remarks',
+            'instructions',
+            'priority_open',
+            'priority_close',
+            'priority_limit',
+            'general_open',
+            'general_close',
+            'general_limit',
+            'grade_levels',
+            'termdcids',
+            'checkteacherschedule',
+            'blockapproval',
+            'studentsignup',
+            'siblingtimeslots',
+            'status'
+          ],
+          true
+        );
+
+        for(const p in record) {
+          $j('#r_'+p).val(record[p]);
+        }
+
+        $j('#button_delete').show();
+      }
+
+      loadGradeLevels();
+      loadYears();
+
+      CKEDITOR.replace('r_instructions', {
+        height: 200
+      });
+
+      loadExplanationToolTips();
+      $j('#error_signupdates ul').empty();
+      $j('#error_signupdates').hide();
+      checkOverlappingSignupPeriods();
+      checkStartEndBeforeDates();
+    }
+
+    async function loadGradeLevels() {
+      let schoolID = $j('#r_schoolid').val();
+      let gradeLevelsList = await getPQ(
+        'com.psugasia.ptc5.general.grade_levels', 
+        0, 
+        {
+          'schoolid':schoolID
+        },
+        [
+          'grade_level'
+        ],
+        false,
+        [['grade_level', 'asc', 'numeric']]
+      );
+
+      let html = '';
+      gradeLevelsList.forEach(function(v, i, a) {
+        html += '<span>'
+                + '<input type="checkbox" id="grade_level_'+i+'" value="'+v.grade_level+'">'
+                + '<label for="grade_level_'+i+'">'+v.grade_level+'</label>'
+              + '</span>';
+      });
+      $j('#fieldset_gradelevels').html(html);
+
+      if (existingRecord) {
+        let existingValue = $j('#r_grade_levels').val();
+        let existingValueA = existingValue.split(',');
+
+        existingValueA.forEach(function(ev) {
+          $j('#fieldset_gradelevels input[value="'+ev+'"]').prop('checked', true);
+        });
+      }
+    }
+
+    async function loadYears() {
+      let yearID = '';
+      if (existingRecord) {
+        yearID = $j('#r_yearid').val();
+      }
+
+      let schoolID = $j('#r_schoolid').val();
+      let yearsList = await getPQ(
+        'com.psugasia.ptc5.general.years', 
+        0, 
+        {
+          'schoolid':schoolID
+        },
+        [
+          'yearid',
+          'name'
+        ],
+        false,
+        [['yearid', 'desc', 'numeric']]
+      );
+
+      $j('#r_year').empty();
+      yearsList.forEach(function(v, i, a) {
+        $j('#r_year').append('<option value="'+v.yearid+'"'+(parseInt(yearID) === parseInt(v.yearid) ? ' selected' : '')+'>'+v.name+'</option>');
+      });
+
+      updateYearID();
+      loadTerms();
+    }
+
+    function updateYearID() {
+      $j('#r_yearid').val($j('#r_year').val());
+    }
+
+    async function loadTerms() {
+      let schoolID = $j('#r_schoolid').val();
+      let yearID = $j('#r_yearid').val();
+
+      let termsList = await getPQ(
+        'com.psugasia.ptc5.general.terms', 
+        0, 
+        {
+          'schoolid':schoolID,
+          'yearid':yearID
+        },
+        [
+          'dcid',
+          'name'
+        ],
+        false
+      );
+
+      let html = '';
+      termsList.forEach(function(v, i, a) {
+        html += '<span>'
+                + '<input type="checkbox" id="termdcid_'+i+'" value="'+v.dcid+'">'
+                + '<label for="termdcid_'+i+'">'+v.name+'</label>'
+              + '</span>';
+      });
+      $j('#fieldset_termdcids').html(html);
+
+      if (existingRecord) {
+        let existingValue = $j('#r_termdcids').val();
+        let existingValueA = existingValue.split(',');
+
+        existingValueA.forEach(function(ev) {
+          $j('#fieldset_termdcids input[value="'+ev+'"]').prop('checked', true);
+        });
+      }
+    }
+
+    async function saveRecord() {
+      $j('#save_confirm').hide();
+      $j('#save_error').hide();
+
+      if (isMissingInput() || $j('#fieldset_gradelevels input:checked').length === 0 || $j('#fieldset_termdcids input:checked').length === 0) {
+        if ($j('#fieldset_gradelevels input:checked').length === 0)
+          $j('#fieldset_gradelevels input[type="checkbox"]').addClass('requiredInputMissing');
+        if ($j('#fieldset_termdcids input:checked').length === 0)
+          $j('#fieldset_termdcids input[type="checkbox"]').addClass('requiredInputMissing');
+        alert("Please fill in all required fields");
+        $j('.requiredInputMissing').first().focus();
+        return false;
+      }
+
+      let tableName = 'u_ptc5_sessions';
+      let fields = {};
+      $j('#recordContainer .record').each(function(k,v) {
+        let elementID = $j(v).attr('id');
+        let fieldName = elementID.substring(2);
+        if (elementID == 'r_grade_levels') {
+          fields[fieldName] = '';
+          fields[fieldName] = ','+$j('#fieldset_gradelevels input:checked').map(function() {
+            return this.value;
+          }).get().join(',')+',';
+        }
+        else if (elementID == 'r_termdcids') {
+          fields[fieldName] = '';
+          fields[fieldName] = ','+$j('#fieldset_termdcids input:checked').map(function() {
+            return this.value;
+          }).get().join(',')+',';
+        }
+        else if ((elementID == 'r_instructions')) {
+          fields[fieldName] = '';
+          let ckContent = CKEDITOR.instances[elementID].getData();
+          ckContent = ckContent.replace(/&quot;/g, "");
+          if (ckContent.trim() != '')
+            fields[fieldName] = ckContent;
+        }
+        else {
+          fields[fieldName] = $j(v).val();
+        }
+      });
+      let data = {"tables": {[tableName]: fields}};
+
+      let url = '';
+      let method = '';
+      if (existingRecord) {
+        url = '/ws/schema/table/'+tableName+'/'+recordID;
+        method = 'PUT';
+      }
+      else {
+        url = '/ws/schema/table/'+tableName;
+        method = 'POST';
+      }
+
+      let api = await fetch(url, {
+        method: method,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+      const response = await api.json();
+
+      if (response?.result[0]?.status == 'SUCCESS') {
+        if (!existingRecord)
+          window.location.replace('sessions_edit.html?id='+response?.result[0]?.success_message?.id);
+        else {
+          $j('#save_confirm').show();
+          $j('#error_signupdates ul').empty();
+          $j('#error_signupdates').hide();
+          checkOverlappingSignupPeriods();
+          checkStartEndBeforeDates();
+        }
+      }
+      else {
+        $j('#save_error').show();
+      }
+    }
+
+    function checkOverlappingSignupPeriods() {
+      let start1 = $j('#r_priority_open').val();
+      let end1 = $j('#r_priority_close').val();
+      let start2 = $j('#r_general_open').val();
+      let end2 = $j('#r_general_close').val();
+      if (start1 != '' && end1 != '' && start2 != '' && end2 != '') {
+        if (overlappingDateTimes(new Date(start1), new Date(end1), new Date(start2), new Date(end2))) {
+          $j('#r_priority_open').focus();
+          $j('#error_signupdates ul').append('<li>The Priority and General signup periods should not overlap.</li>');
+          $j('#error_signupdates').show();
+        }
+      }
+    }
+
+    function checkStartEndBeforeDates() {
+      let start1 = $j('#r_priority_open').val();
+      let end1 = $j('#r_priority_close').val();
+      if (start1 != '' && end1 != '') {
+        if (!date1BeforeDate2(new Date(start1), new Date(end1))) {
+          $j('#r_priority_open').focus();
+          $j('#error_signupdates ul').append('<li>The Priority Open Date/Time should be before the Close Date/Time.</li>');
+          $j('#error_signupdates').show();
+        }
+      }
+
+      let start2 = $j('#r_general_open').val();
+      let end2 = $j('#r_general_close').val();
+      if (start2 != '' && end2 != '') {
+        if (!date1BeforeDate2(new Date(start2), new Date(end2))) {
+          $j('#r_general_open').focus();
+          $j('#error_signupdates ul').append('<li>The General Open Date/Time should be before the Close Date/Time.</li>');
+          $j('#error_signupdates').show();
+        }
+      }
+    }
+
+    async function deleteRecord() {
+      if (confirm("Are you sure you want to delete this record?")) {
+        let response = await fetch('/ws/schema/table/u_ptc5_sessions/'+recordID, {
+          method: 'DELETE',
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (response?.status == 204) {
+          window.location.replace('sessions_list.html');
+        }
+        else {
+          alert("There was a problem processing your request, please try again");
+        }
+      }
+    }
+  </script>
+  <style>
+    #cke_r_instructions {
+      margin: 10px;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+  <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; <a href="/admin/psugasia/ptc5/sessions_list.html" target="_top">Sessions</a>
+  &gt; ~[if#new.~(gpv.id)=-1]New[else#new]Edit[/if#new]
+  <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>~[if#new.~(gpv.id)=-1]New[else#new]Edit[/if#new] Session</h1> 
+<!-- start of content area --> 
+  <div id="recordContainer">
+
+    <div class="feedback-info">
+      It is recommended to keep your sesssions open to no more than 300 students at a time or parents may experience performance issues.
+    </div>
+
+    <fieldset>
+      <div>
+        <label for="r_schoolid"><span class="requiredInput">School</span></label>
+        <select id="r_schoolid" class="record" onchange="loadGradeLevels();loadYears();">
+          ~[tlist_sql;
+          select
+          school_number,
+          name
+
+          from schools
+
+          where
+          1=1
+          ~[if#school.~(curschoolid)#0]and school_number = '~(curschoolid)'[/if#school]
+
+          order by sortorder, name
+          ;]
+          <option value="~(school_number)">~(name)</option>
+          [/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <input id="r_yearid" class="record" type="hidden" value="">
+        <label for="r_year"><span class="requiredInput">Year</span></label>
+        <select id="r_year" onchange="updateYearID();loadTerms();"></select>
+      </div>
+      <div>
+        <label for="r_name"><span class="requiredInput">Name</span></label>
+        <input id="r_name" class="record" type="text" value="" style="width: 400px;">
+      </div>
+      <div>
+        <label for="r_remarks">Remarks</label>
+        <textarea id="r_remarks" class="record" style="width: 400px; height: 50px;"></textarea>
+      </div>
+      <div>
+        <input id="r_grade_levels" class="record" type="hidden" value="">
+        <label>Grade Levels<span style="color: red; font-weight: bold;">*</span> <button type="button" class="explanation" data-contentid="grade_levels">?</button><button type="button" onclick="toggleCheckboxes('fieldset_gradelevels')">Toggle</button></label>
+        <fieldset id="fieldset_gradelevels" style="border: 0;"></fieldset>
+      </div>
+      <div>
+        <label for="r_checkteacherschedule">Check Teacher Schedule <button type="button" class="explanation" data-contentid="checkteacherschedule">?</button></label>
+        <select id="r_checkteacherschedule" class="record">
+          <option value="1" selected>Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+      <div>
+        <label for="r_studentsignup">Allow Student Sign Up <button type="button" class="explanation" data-contentid="studentsignup">?</button></label>
+        <select id="r_studentsignup" class="record">
+          <option value="1">Yes</option>
+          <option value="0" selected>No</option>
+        </select>
+      </div>
+      <div>
+        <label for="r_blockapproval">Blocked Timeslots Approval <button type="button" class="explanation" data-contentid="blockapproval">?</button></label>
+        <select id="r_blockapproval" class="record">
+          <option value="1" selected>Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+      <div>
+        <label for="r_siblingtimeslots">Check Sibling Timeslots <button type="button" class="explanation" data-contentid="siblingtimeslots">?</button></label>
+        <select id="r_siblingtimeslots" class="record">
+          <option value="1" selected>Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+      <div>
+        <input id="r_termdcids" class="record" type="hidden" value="">
+        <label>Terms<span style="color: red; font-weight: bold;">*</span> <button type="button" class="explanation" data-contentid="termdcids">?</button><button type="button" onclick="toggleCheckboxes('fieldset_termdcids')">Toggle</button></label>
+        <fieldset id="fieldset_termdcids" style="border: 0;"></fieldset>
+      </div>
+      <div>
+        <label for="r_status">Status</label>
+        <select id="r_status" class="record">
+          <option value="1" selected>Enabled</option>
+          <option value="0">Disabled</option>
+        </select>
+      </div>
+      <div>
+        <label for="r_instructions">Instructions <button type="button" class="explanation" data-contentid="instructions">?</button></label>
+        <textarea id="r_instructions" class="record"></textarea>
+      </div>
+    </fieldset>
+
+    <div class="feedback-info">
+      Your server's current date/time is ~[tlist_sql;select to_char(cast(systimestamp at time zone (select timezone_code from u_ptc5_settings where rownum = 1) as date),'YYYY-MM-DD HH'||chr(58)||'MI AM') as dt from dual;]<strong>~(dt)</strong>[/tlist_sql].  If the server date/time is different to your actual local date/time, please check the timezone selected in <a href="/admin/psugasia/ptc5/settings.html">General Settings</a>.  If the time is still off after setting the correct timezone, enter the date/times below with the offset.
+    </div>
+
+    <div class="feedback-error" id="error_signupdates" style="display: none;">
+      <ul style="margin-top: 0; margin-bottom: 0;"></ul>
+    </div>
+
+    <fieldset>
+      <legend>Priority Signup <button type="button" class="explanation" data-contentid="prioritysignup">?</button></legend>
+      <div>
+        <label for="r_priority_open">Open Date/Time</label>
+        <input id="r_priority_open" class="record" type="datetime-local" value="">
+      </div>
+      <div>
+        <label for="r_priority_close">Close Date/Time</label>
+        <input id="r_priority_close" class="record" type="datetime-local" value="">
+      </div>
+      <div>
+        <label for="r_priority_limit">Limit <button type="button" class="explanation" data-contentid="limit">?</button></label>
+        <input id="r_priority_limit" class="record" type="number" min="0" step="1" value="0" style="width: 50px;">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>General Signup <button type="button" class="explanation" data-contentid="generalsignup">?</button></legend>
+      <div>
+        <label for="r_general_open"><span class="requiredInput">Open Date/Time</span></label>
+        <input id="r_general_open" class="record" type="datetime-local" value="">
+      </div>
+      <div>
+        <label for="r_general_close"><span class="requiredInput">Close Date/Time</span></label>
+        <input id="r_general_close" class="record" type="datetime-local" value="">
+      </div>
+      <div>
+        <label for="r_general_limit">Limit <button type="button" class="explanation" data-contentid="limit">?</button></label>
+        <input id="r_general_limit" class="record" type="number" min="0" step="1" value="0" style="width: 50px;">
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" onclick="saveRecord()">Save</button>
+      <button type="button" onclick="deleteRecord()" id="button_delete" style="display: none;">Delete</button>
+    </div>
+
+    <div class="feedback-error" id="save_error" style="display:none;">
+      There was a problem processing your request.  Please try again.
+    </div>
+
+    <div class="feedback-confirm" id="save_confirm" style="display:none;">
+      Record updated
+    </div>
+  </div>
+
+  <div id="explanation_instructions" style="display:none;">
+    This will be shown on the student/parent facing signup page.
+  </div>
+
+  <div id="explanation_grade_levels" style="display:none;">
+    Only selected grade levels will be allowed to signup.
+  </div>
+
+  <div id="explanation_checkteacherschedule" style="display:none;">
+    Automatically block timeslots that overlap with the teacher's schedule.  This option is useful if the session is happening on a school day.
+  </div>
+
+  <div id="explanation_studentsignup" style="display:none;">
+    Allow students to access the signup page.
+  </div>
+
+  <div id="explanation_blockapproval" style="display:none;">
+    This option controls if timeslot blocks created by teachers require admin approval to be honored or not.
+    <br><br>
+    If you change this setting after timeslot blocks have been created, make sure to review their approval status afterwards
+    <br>
+    (if changing to not needing approval, mass change all blocks to "approved" status).
+  </div>
+
+  <div id="explanation_termdcids" style="display:none;">
+    Which terms to include sections from for this session.
+    <br><br>
+    For example, if you are running PTC in semester 2, you probably do not want to include sections from semester 1.
+  </div>
+
+  <div id="explanation_limit" style="display:none;">
+    Maximum number of bookings per student allowed in this signup period, set to 0 if there is no maximum.
+  </div>
+
+  <div id="explanation_prioritysignup" style="display:none;">
+    During the Priority Signup period, only students marked as priority (Select student > Courses and Programs > Student PTC Settings) will be able to signup.  This is generally used for cases like faculty students and families with many siblings.
+  </div>
+
+  <div id="explanation_generalsignup" style="display:none;">
+    Everybody will be able to signup in the General Signup period (including priority students).
+  </div>
+
+  <div id="explanation_siblingtimeslots" style="display:none;">
+    Automatically block off timeslots that are already booked for a sibling.
+    <br><br>
+    Use this to avoid parents booking the same timeslot for different siblings (parents cannot be in 2 places at the same time).
+  </div>
+
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

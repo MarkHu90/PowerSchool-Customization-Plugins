@@ -1,0 +1,72 @@
+[
+~[tlist_sql;
+select
+rownum,
+s.id as studentid,
+d.id as ccid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+cd.id as calendardayid,
+to_char(cd.date_value,'~[dateformat]') as date_value,
+to_char(cd.date_value,'YYYY-MM-DD') as apidate,
+yd.day_name,
+bs.name as bellschedule,
+p.id as periodid,
+p.name as periodname,
+to_char(to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.start_time,'YYYY-MM-DD SSSSS'),'YYYY-MM-DD HH24'||chr(58)||'MI'||chr(58)||'SS') as timestring,
+a.attendance_codeid,
+a.att_comment,
+bsi.start_time,
+bsi.end_time
+
+from u_attendancenotices_requests uanr
+inner join students s on s.dcid = uanr.studentsdcid
+inner join cc d on s.id = d.studentid
+inner join sections e on d.sectionid = e.id
+inner join courses c on e.course_number = c.course_number
+inner join section_meeting em on e.id = em.sectionid
+inner join cycle_day yd on em.cycle_day_letter = yd.letter and em.schoolid = yd.schoolid and em.year_id = yd.year_id
+inner join calendar_day cd on yd.id = cd.cycle_day_id and cd.schoolid = yd.schoolid
+inner join terms y on cd.schoolid = y.schoolid and y.isyearrec = 1 and y.yearid = em.year_id and cd.date_value between y.firstday and y.lastday
+inner join period p on em.period_number = p.period_number and em.schoolid = p.schoolid and em.year_id = p.year_id
+inner join bell_schedule_items bsi on bsi.bell_schedule_id = cd.bell_schedule_id and bsi.period_id = p.id
+inner join bell_schedule bs on cd.bell_schedule_id = bs.id
+inner join terms r on e.termid = r.id and r.schoolid = e.schoolid and cd.date_value between r.firstday and r.lastday
+left outer join attendance a on s.id = a.studentid and cd.id = a.calendar_dayid and a.ccid = d.id and a.periodid = p.id and a.att_mode_code = 'ATT_ModeMeeting'
+
+where
+uanr.id = '~(gpv.id)'
+and e.termid between ~(curyearid)00 and ~(curyearid)99
+and e.schoolid = '~(curschoolid)'
+and nvl(cd.insession,0) = 1
+and em.year_id = '~(curyearid)'
+and 
+(
+    (
+        nvl(uanr.allday,0) = 1
+        and cd.date_value between uanr.date_start and uanr.date_end
+    )
+    or
+    (
+        nvl(uanr.allday,0) = 0
+        and 
+        (
+            (
+                to_date(to_char(uanr.date_start,'YYYY-MM-DD')||' '||uanr.time_start,'YYYY-MM-DD HH24'||chr(58)||'MI') between to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.start_time,'YYYY-MM-DD SSSSS') and to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.end_time,'YYYY-MM-DD SSSSS')
+                or
+                to_date(to_char(uanr.date_end,'YYYY-MM-DD')||' '||uanr.time_end,'YYYY-MM-DD HH24'||chr(58)||'MI') between to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.start_time,'YYYY-MM-DD SSSSS') and to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.end_time,'YYYY-MM-DD SSSSS')
+            )
+            or
+            (
+                to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.start_time,'YYYY-MM-DD SSSSS') between to_date(to_char(uanr.date_start,'YYYY-MM-DD')||' '||uanr.time_start,'YYYY-MM-DD HH24'||chr(58)||'MI') and to_date(to_char(uanr.date_end,'YYYY-MM-DD')||' '||uanr.time_end,'YYYY-MM-DD HH24'||chr(58)||'MI')
+                or
+                to_date(to_char(cd.date_value,'YYYY-MM-DD')||' '||bsi.end_time,'YYYY-MM-DD SSSSS') between to_date(to_char(uanr.date_start,'YYYY-MM-DD')||' '||uanr.time_start,'YYYY-MM-DD HH24'||chr(58)||'MI') and to_date(to_char(uanr.date_end,'YYYY-MM-DD')||' '||uanr.time_end,'YYYY-MM-DD HH24'||chr(58)||'MI')
+            )
+        )
+    )
+)
+order by cd.date_value, p.sort_order
+;]
+  {"rownum":"~(rownum;json)","studentid":"~(studentid;json)","ccid":"~(ccid;json)","course_name":"~(course_name;json)","section_number":"~(section_number;json)","calendardayid":"~(calendardayid;json)","date_value":"~(date_value;json)","apidate":"~(apidate;json)","day_name":"~(day_name;json)","bellschedule":"~(bellschedule;json)","periodid":"~(periodid;json)","periodname":"~(periodname;json)","timestring":"~(timestring;json)","attendance_codeid":"~(attendance_codeid;json)","att_comment":"~(att_comment;json)","start_time":"~(start_time;json)","end_time":"~(end_time;json)"},
+[/tlist_sql]
+{}]

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Timeslots (Calendar View)</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/event-calendar/event-calendar.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/event-calendar/event-calendar.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let coursesList = [];
+    let sectionsList = [];
+    let usersList = [];
+    let eventCalendar;
+
+    function updateSession() {
+      if ($j('#sr_session').val()) {
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        let html = '';
+        sessionGradeLevels.forEach(function(gradeLevel, i, a) {
+          if (gradeLevel != '') {
+            html += '<span>'
+                    + '<input class="r_grade_levels" type="checkbox" value="'+gradeLevel+'">'
+                    + '<label>'+gradeLevel+'</label>'
+                  + '</span>';
+          }
+        });
+        $j('#r_gradelevels').html(html);
+        loadCourses();
+        loadSections();
+        loadUsers();
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadCourses() {
+      coursesList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.courses', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'course_number'
+        ],
+        false
+      );
+
+      $j('#sr_courses').empty();
+      $j('#r_courses').empty();
+      $j('#sr_courses').append('<option value="-1"></option>');
+      coursesList.forEach(function(v, i, a) {
+        $j('#sr_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+        $j('#r_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+      });
+    }
+
+    async function loadSections() {
+      sectionsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.sections', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+
+      $j('#sr_sections').empty();
+      $j('#r_sections').empty();
+      $j('#sr_sections').append('<option value="-1"></option>');
+      sectionsList.forEach(function(v, i, a) {
+        $j('#sr_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+        $j('#r_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+      });
+    }
+
+    async function loadUsers() {
+      usersList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.users', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      $j('#sr_users').empty();
+      $j('#r_users').empty();
+      $j('#sr_users').append('<option value="-1"></option>');
+      usersList.forEach(function(v, i, a) {
+        $j('#sr_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+        $j('#r_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+      });
+    }
+
+    async function showTimeslots() {
+      $j('#legend').show();
+      let events = await loadTimeslots();
+
+      let resources = [
+        {id: 'event_priorityonly', title: 'Priority Booking Only'},
+        {id: 'event_admin', title: 'Admin Booking Only'},
+        {id: 'event_mustmeet', title: 'Must Meet Only'},
+        {id: 'event_disabled', title: 'Disabled'},
+        {id: 'event_capacity', title: 'Allows more than 1 student'},
+        {id: 'event_courses', title: 'Specifc Courses only'},
+        {id: 'event_sections', title: 'Specifc Sections only'},
+        {id: 'event_users', title: 'Specifc Teachers only'}
+      ];
+      sessionGradeLevels.forEach(function(gradeLevel) {
+        resources.push({id: 'event_gradelevel_'+gradeLevel, title: 'Grade '+gradeLevel});
+      });
+
+      if (eventCalendar)
+        EventCalendar.destroy(eventCalendar)
+      eventCalendar = EventCalendar.create(document.getElementById('div_eventcalendar'), {
+        view: 'dayGridMonth',
+        headerToolbar: {
+          start: 'prev,next today',
+          center: 'title',
+          end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth resourceTimeGridDay,resourceTimelineDay'
+        },
+        resources: resources,
+        events: events,
+        eventClick: function(info) {
+          editEvent(info);
+        },
+        eventContent: function(info) {
+          return renderEvent(info);
+        },
+        editable: true,
+        allDaySlot: false,
+        hiddenDays: ($j('#sr_hideweekends').prop('checked') ? [0,6] : []),
+        date: new Date(events[0].start),
+        slotMinTime: $j('#sr_timemin').val(),
+        slotMaxTime: $j('#sr_timemax').val(),
+        titleFormat: {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'},
+        slotDuration: '00:10:00'
+      });
+    }
+
+    async function loadTimeslots() {
+      let timeslots = await getPQ(
+        'com.psugasia.ptc5.timeslots.list', 
+        0, 
+        {
+          sessionid: sessionID,
+          coursedcid: $j('#sr_courses').val(),
+          sectiondcid: $j('#sr_sections').val(),
+          schoolstaffdcid: $j('#sr_users').val(),
+          daterange1: '',
+          daterange2: '',
+          status: '1',
+          timeslotid: '-1'
+        },
+        [
+          'id',
+          'startdt',
+          'enddt',
+          'grade_levels',
+          'priorityonly',
+          'admin',
+          'mustmeet',
+          'capacity',
+          'remarks',
+          'status',
+          'coursescount',
+          'sectionscount',
+          'schoolstaffcount'
+        ],
+        false
+      );
+
+      let events = [];
+      timeslots.forEach(function(timeslot) {
+        let classes = [];
+        let resources = [];
+        timeslot.grade_levels.split(',').filter(Number).sort(function(a, b){return a - b}).forEach(function(gradeLevel) {
+          resources.push('event_gradelevel_'+gradeLevel);
+        });
+        if (parseInt(timeslot.priorityonly) === 1) {
+          resources.push('event_priorityonly');
+        }
+        if (parseInt(timeslot.admin) === 1) {
+          resources.push('event_admin');
+        }
+        if (parseInt(timeslot.mustmeet) === 1) {
+          resources.push('event_mustmeet');
+        }
+        if (parseInt(timeslot.status) === 0) {
+          classes.push('event_disabled');
+          resources.push('event_disabled');
+        }
+        if (parseInt(timeslot.capacity) > 1) {
+          resources.push('event_capacity');
+        }
+        if (parseInt(timeslot.coursescount) > 0) {
+          resources.push('event_courses');
+        }
+        if (parseInt(timeslot.sectionscount) > 0) {
+          resources.push('event_sections');
+        }
+        if (parseInt(timeslot.schoolstaffcount) > 0) {
+          resources.push('event_users');
+        }
+
+        events.push({
+          id: timeslot.id,
+          start: (timeslot.startdt+':00').replaceAll('T', ' '),
+          end: (timeslot.enddt+':00').replaceAll('T', ' '),
+          classNames: classes,
+          resourceIds: resources,
+          extendedProps: timeslot
+        });
+      });
+
+      //console.log(events);
+
+      return events;
+    }
+
+    function renderEvent(info) {
+      //console.log(info);
+      if (!info.view.type.startsWith('resourceTime')) {
+        let titleHTML = '<div>'+info.timeText+'</div>';
+        let labelsHTML = ''
+        for (let i = -2; i <= 13; i++) {
+          if (info.event.resourceIds.includes('event_gradelevel_'+i))
+            labelsHTML += '<span class="eventlabel">'+i+'</span>';  
+        }
+        if (info.event.resourceIds.includes('event_priorityonly'))
+          labelsHTML += '<span class="eventlabel">P</span>';
+        if (info.event.resourceIds.includes('event_admin'))
+          labelsHTML += '<span class="eventlabel">A</span>';
+        if (info.event.resourceIds.includes('event_mustmeet'))
+          labelsHTML += '<span class="eventlabel">M</span>';
+        if (info.event.resourceIds.includes('event_capacity'))
+          labelsHTML += '<span class="eventlabel">1+</span>';
+        if (info.event.resourceIds.includes('event_courses'))
+          labelsHTML += '<span class="eventlabel">C</span>';
+        if (info.event.resourceIds.includes('event_sections'))
+          labelsHTML += '<span class="eventlabel">S</span>';
+        if (info.event.resourceIds.includes('event_users'))
+          labelsHTML += '<span class="eventlabel">T</span>';
+
+        //console.log(titleHTML);
+        return {html: titleHTML+'<div>'+labelsHTML+'</div>'};
+      }
+      else
+        return undefined;
+    }
+
+    async function editEvent(info) {
+      //console.log(info);
+      let thisEvent = info.event;
+      let timeslotID = thisEvent.id;
+      $j('#r_startdt').val(convertToDateTimeLocalString(thisEvent.start));
+      $j('#r_enddt').val(convertToDateTimeLocalString(thisEvent.end));
+      thisEvent.resourceIds.forEach(function(resource) {
+        if (resource.startsWith('event_gradelevel')) {
+          let gradeLevel = resource.split('_')[2];
+          $j('#r_gradelevels input.r_grade_levels[value="'+gradeLevel+'"]').prop('checked', true);
+        }
+      });
+      $j('#r_priorityonly').val(thisEvent.extendedProps.priorityonly);
+      $j('#r_admin').val(thisEvent.extendedProps.admin);
+      $j('#r_mustmeet').val(thisEvent.extendedProps.mustmeet);
+      $j('#r_capacity').val(thisEvent.extendedProps.capacity);
+      $j('#r_remarks').val(thisEvent.extendedProps.remarks);
+      $j('#r_status').val(thisEvent.extendedProps.status);
+
+      let existingValue = [];
+      let selectOptions = [];
+      existingValue = await getPQ('com.psugasia.ptc5.timeslots.single.courses', 0, {'timeslotid': timeslotID}, ['id','coursedcid'], false);
+      thisEvent.extendedProps['courses'] = existingValue;
+      $j('#r_courses').chosen("destroy");
+      $j('#r_courses').chosen({
+        width: "500px",
+        no_results_text: "Oops, nothing found!",
+        display_selected_options: false
+      });
+      existingValue.forEach(function(ev) {
+        selectOptions.push(ev['coursedcid']);
+      });
+      $j('#r_courses').val(selectOptions);
+      $j('#r_courses').trigger("chosen:updated");
+
+      existingValue = await getPQ('com.psugasia.ptc5.timeslots.single.sections', 0, {'timeslotid': timeslotID}, ['id','sectiondcid'], false);
+      thisEvent.extendedProps['sections'] = existingValue;
+      $j('#r_sections').chosen("destroy");
+      $j('#r_sections').chosen({
+        width: "500px",
+        no_results_text: "Oops, nothing found!",
+        display_selected_options: false
+      });
+      selectOptions = [];
+      existingValue.forEach(function(ev) {
+        selectOptions.push(ev['sectiondcid']);
+      });
+      $j('#r_sections').val(selectOptions);
+      $j('#r_sections').trigger("chosen:updated");
+
+      existingValue = await getPQ('com.psugasia.ptc5.timeslots.single.users', 0, {'timeslotid': timeslotID}, ['id','schoolstaffdcid'], false);
+      thisEvent.extendedProps['users'] = existingValue;
+      $j('#r_users').chosen("destroy");
+      $j('#r_users').chosen({
+        width: "500px",
+        no_results_text: "Oops, nothing found!",
+        display_selected_options: false
+      });
+      selectOptions = [];
+      existingValue.forEach(function(ev) {
+        selectOptions.push(ev['schoolstaffdcid']);
+      });
+      $j('#r_users').val(selectOptions);
+      $j('#r_users').trigger("chosen:updated");
+
+      $j('#div_dialog_event').dialog({
+        modal: true,
+        width: 900,
+        height: 700,
+        buttons: [
+          {
+            text: 'Submit',
+            click: function() {
+              //let dialog = this;
+              
+              saveTimeSlot(thisEvent, this);
+              
+              //eventCalendar.setOption('events', await loadTimeslots());
+              //$j(dialog).dialog("close");
+            }
+          },
+          {
+            text: 'Delete',
+            click: async function() {
+              if (confirm("Are you sure you want to delete this timeslot?")) {
+                let dialog = this;
+                let response = await fetch('/ws/schema/table/u_ptc5_timeslots/'+timeslotID, {
+                  method: 'DELETE',
+                  headers: {
+                    "Content-Type": "application/json"
+                  }
+                });
+                if (response?.status == 204) {
+                  eventCalendar.setOption('events', await loadTimeslots());
+                  $j(dialog).dialog("close");
+                }
+                else {
+                  alert("There was a problem processing your request, please try again");
+                }
+              }
+            }
+          },
+        ]
+      });
+    }
+
+    async function saveTimeSlot(thisEvent, dialog) {
+      let timeslotID = thisEvent.id;
+
+      let selectedCourses = $j('#r_courses').val();
+      thisEvent.extendedProps.courses.forEach(function(ev) {
+        if (!selectedCourses.includes(ev.coursedcid))
+          ev.coursedcid = undefined;
+      });
+      selectedCourses.forEach(function(sv) {
+        if (!thisEvent.extendedProps.courses.some(ev => parseInt(ev.coursedcid) === parseInt(sv)))
+          thisEvent.extendedProps.courses.push({id: undefined, coursedcid: sv});
+      });
+      let selectedSections = $j('#r_sections').val();
+      thisEvent.extendedProps.sections.forEach(function(ev) {
+        if (!selectedSections.includes(ev.sectiondcid))
+          ev.sectiondcid = undefined;
+      });
+      selectedSections.forEach(function(sv) {
+        if (!thisEvent.extendedProps.sections.some(ev => parseInt(ev.sectiondcid) === parseInt(sv)))
+          thisEvent.extendedProps.sections.push({id: undefined, sectiondcid: sv});
+      });
+      let selectedUsers = $j('#r_users').val();
+      thisEvent.extendedProps.users.forEach(function(ev) {
+        if (!selectedUsers.includes(ev.schoolstaffdcid))
+          ev.schoolstaffdcid = undefined;
+      });
+      selectedUsers.forEach(function(sv) {
+        if (!thisEvent.extendedProps.users.some(ev => parseInt(ev.schoolstaffdcid) === parseInt(sv)))
+          thisEvent.extendedProps.users.push({id: undefined, schoolstaffdcid: sv});
+      });
+
+      let scheduledCalls = 1 + 
+      (thisEvent.extendedProps?.courses.length > 0 ? thisEvent.extendedProps?.courses?.filter((v) => !v.id || !v.coursedcid)?.length : 0) + 
+      (thisEvent.extendedProps?.sections?.length ? thisEvent.extendedProps?.sections?.filter((v) => !v.id || !v.sectiondcid)?.length : 0) + 
+      (thisEvent.extendedProps?.users?.length ? thisEvent.extendedProps?.users?.filter((v) => !v.id || !v.schoolstaffdcid)?.length : 0);
+      let finishedCalls = 0;
+
+      let gradeLevels = '';
+      if ($j('#r_gradelevels input.r_grade_levels:checked').length > 0) {
+        gradeLevels = ','+$j('#r_gradelevels input.r_grade_levels:checked').map(function() {
+          return this.value;
+        }).get().join(',')+',';
+      }
+
+      let api = await fetch('/ws/schema/table/u_ptc5_timeslots/'+timeslotID, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "tables": {
+            "u_ptc5_timeslots": {
+              "startdt": $j('#r_startdt').val(),
+              "enddt": $j('#r_enddt').val(),
+              "grade_levels": gradeLevels,
+              "priorityonly": $j('#r_priorityonly').val(),
+              "admin": $j('#r_admin').val(),
+              "mustmeet": $j('#r_mustmeet').val(),
+              "capacity": $j('#r_capacity').val(),
+              "remarks": $j('#r_remarks').val(),
+              "status": $j('#r_status').val()
+            }
+          }
+        })
+      });
+      const response = await api.json();
+      finishedCalls++;
+      completedSave(scheduledCalls, finishedCalls, dialog, (response?.result[0]?.status == 'SUCCESS' ? true : false));
+
+      let childRecords = [];
+      if (thisEvent.extendedProps.courses.filter((v) => !v.id || !v.coursedcid)?.length > 0) {
+        thisEvent.extendedProps.courses.forEach(function(course) {
+          if (course.id && !course.coursedcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_courses/'+course.id,
+              method: 'DELETE',
+              data: {} 
+            });
+          }
+          else if (!course.id && course.coursedcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_courses/',
+              method: 'POST',
+              data: {
+                "tables": {
+                  "u_ptc5_timeslots_courses": {
+                    "u_ptc5_timeslotsid": String(timeslotID),
+                    "coursedcid": String(course.coursedcid)
+                  }
+                }
+              } 
+            });
+          }
+        });
+      }
+      if (thisEvent.extendedProps.sections.filter((v) => !v.id || !v.sectiondcid)?.length > 0) {
+        thisEvent.extendedProps.sections.forEach(function(section) {
+          if (section.id && !section.sectiondcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_sections/'+section.id,
+              method: 'DELETE',
+              data: {} 
+            });
+          }
+          else if (!section.id && section.sectiondcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_sections/',
+              method: 'POST',
+              data: {
+                "tables": {
+                  "u_ptc5_timeslots_sections": {
+                    "u_ptc5_timeslotsid": String(timeslotID),
+                    "sectiondcid": String(section.sectiondcid)
+                  }
+                }
+              } 
+            });
+          }
+        });
+      }
+      if (thisEvent.extendedProps.users.filter((v) => !v.id || !v.schoolstaffdcid)?.length > 0) {
+        thisEvent.extendedProps.users.forEach(function(user) {
+          if (user.id && !user.schoolstaffdcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_schoolstaff/'+user.id,
+              method: 'DELETE',
+              data: {} 
+            });
+          }
+          else if (!user.id && user.schoolstaffdcid) {
+            childRecords.push({
+              url: '/ws/schema/table/u_ptc5_timeslots_schoolstaff/',
+              method: 'POST',
+              data: {
+                "tables": {
+                  "u_ptc5_timeslots_schoolstaff": {
+                    "u_ptc5_timeslotsid": String(timeslotID),
+                    "schoolstaffdcid": String(user.schoolstaffdcid)
+                  }
+                }
+              } 
+            });
+          }
+        });
+      }
+
+      if (childRecords.length > 0) {
+        childRecords.forEach(async function(record) {
+          let api2 = await fetch(record.url, {
+            method: record.method,
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(record.data)
+          });
+
+          if (record.method == 'DELETE') {
+            finishedCalls++;
+            completedSave(scheduledCalls, finishedCalls, dialog, (api2?.status == 204 ? true : false));
+          }
+          else {
+            const response2 = await api2.json();
+            finishedCalls++;
+            completedSave(scheduledCalls, finishedCalls, dialog, (response2?.result[0]?.status == 'SUCCESS' ? true : false));
+          }
+          
+        });
+      }
+    }
+
+    async function completedSave(scheduledCalls, finishedCalls, dialog, success) {
+      //console.log('scheduledCalls: '+scheduledCalls);
+      //console.log('finishedCalls: '+finishedCalls)
+      if (finishedCalls >= scheduledCalls) {
+        if (success) {
+          eventCalendar.setOption('events', await loadTimeslots());
+          $j(dialog).dialog("close");
+        }
+        else {
+          alert("There was a problem processing your request, please try again");
+        }
+      }
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    /*fix weird PS button styles*/
+    .ec-button {
+      color: black;
+    }
+    .ec-button:not(:hover) {
+      background-color: white;
+    }
+
+    div.ec-events > article > div.ec-event-body {
+      flex-direction: row;
+      justify-content: space-between;
+    }
+    .ec-event {
+      cursor: pointer;
+    }
+    .ec-event:hover {
+      background-color: blue;
+      color: white;
+    }
+    span.eventlabel {
+      color: black;
+      background-color: antiquewhite;
+      font-weight: bold;
+      padding: 0 3px;
+      margin: 0 1px;
+    }
+    .event_disabled {
+      background-color: silver !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Manage Timeslots (Calendar View)
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Manage Timeslots (Calendar View)</h1> 
+<!-- start of content area --> 
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+~[tlist_sql;
+select
+id,
+schoolid,
+grade_levels,
+name
+
+from u_ptc5_sessions
+
+where
+nvl(status,0) = 1
+and yearid = '~(curyearid)'
+~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+order by name
+;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+[/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <label for="sr_courses">Filter Course <button type="button" class="explanation" data-contentid="courses">?</button></label>
+        <select id="sr_courses"></select>
+      </div>
+      <div>
+        <label for="sr_sections">Filter Section <button type="button" class="explanation" data-contentid="sections">?</button></label>
+        <select id="sr_sections"></select>
+      </div>
+      <div>
+        <label for="sr_users">Filter Teacher <button type="button" class="explanation" data-contentid="users">?</button></label>
+        <select id="sr_users"></select>
+      </div>
+      <div>
+        <label for="sr_hideweekends">Hide Weekends</label>
+        <input type="checkbox" id="sr_hideweekends">
+      </div>
+      <div>
+        <label>Display Time Range <button type="button" class="explanation" data-contentid="timerange">?</button></label>
+        <input type="time" id="sr_timemin" value="08:00">
+        -
+        <input type="time" id="sr_timemax" value="20:00">
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" onclick="showTimeslots()">Show Timeslots</button>
+    </div>
+
+    <div id="explanation_courses" style="display:none;">
+      Only show timeslots that allow bookings for this course.
+    </div>
+
+    <div id="explanation_sections" style="display:none;">
+      Only show timeslots that allow bookings for this section.
+    </div>
+
+    <div id="explanation_users" style="display:none;">
+      Only show timeslots that allow bookings for this teacher.
+    </div>
+
+    <div id="explanation_timerange" style="display:none;">
+      The time range the calendar should show in day views.
+    </div>
+
+    <div id="div_eventcalendar" style="margin: 10px;"></div>
+
+    <div id="div_dialog_event" style="display:none;" title="Timeslot Details">
+      <input type="hidden" autofocus>
+      <fieldset>
+        <div>
+          <label for="r_startdt">Start Date/Time</label>
+          <input id="r_startdt" type="datetime-local" value="">
+        </div>
+        <div>
+          <label for="r_enddt">End Date/Time</label>
+          <input id="r_enddt" type="datetime-local" value="">
+        </div>
+        <div>
+          <label>Grade Levels</label>
+          <span id="r_gradelevels"></span>
+        </div>
+        <div>
+          <label for="r_priorityonly">Priority Only</label>
+          <select id="r_priorityonly">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+        <div>
+          <label for="r_admin">Admin Only</label>
+          <select id="r_admin">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+        <div>
+          <label for="r_mustmeet">Must Meet Only</label>
+          <select id="r_mustmeet">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+        <div>
+          <label for="r_capacity">Capacity</label>
+          <input id="r_capacity" type="number" min="1" step="1" value="" style="width: 40px;">
+        </div>
+        <div>
+          <label for="r_remarks">Remarks</label>
+          <textarea id="r_remarks" style="width: 400px; height: 40px;"></textarea>
+        </div>
+        <div>
+          <label for="r_status">Status</label>
+          <select id="r_status">
+            <option value="1">Enabled</option>
+            <option value="0">Disabled</option>
+          </select>
+        </div>
+        <div>
+          <label for="r_courses">Courses</label>
+          <select id="r_courses" multiple data-placeholder=" "></select>
+        </div>
+        <div>
+          <label for="r_sections">Sections</label>
+          <select id="r_sections" multiple data-placeholder=" "></select>
+        </div>
+        <div>
+          <label for="r_users">Teachers</label>
+          <select id="r_users" multiple data-placeholder=" "></select>
+        </div>
+      </fieldset>
+    </div>
+
+    <div id="legend" style="display: none;">
+      <h3>Calendar Labels Legend</h3>
+      <p>
+        <span class="eventlabel">A</span> Admin Booking Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">C</span> Specific Courses Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">M</span> Must Meet Booking Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">P</span> Priority Booking Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">S</span> Specific Sections Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">T</span> Specific Teachers Only&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">1+</span> Allows more than 1 student&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="event_disabled">&nbsp;&nbsp;&nbsp;</span> Disabled&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="eventlabel">#</span> Grade Level # Only
+      </p>
+    </div>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

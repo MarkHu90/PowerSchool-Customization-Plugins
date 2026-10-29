@@ -1,0 +1,209 @@
+~[if#id.~(gpv.id)=]
+  ~[tlist_sql;
+  select
+  id,
+  '~(gpv.saved)' as saved
+  from u_attendancenotices_settings
+  where
+  schoolid = '~(curschoolid)'
+  ;nonemessage=<script>window.location.href='settings.html?id=-1'</script>;]
+  <script>
+    window.location.href='settings.html?id=~(id)&saved=~(saved)';
+  </script>
+  [/tlist_sql]
+[/if#id]
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Settings</title>
+<!-- required scripts -->
+	~[wc:commonscripts]
+<!-- Required style sheets: screen.css, and print.css -->
+	<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+	<link href="/images/css/print.css" rel="stylesheet" media="print">
+  <script src="/scripts/psugasia/attendancenotices/psugasia_attendancenotices.js"></script>
+  <script src="/scripts/dist/teacher_tools/components/shared/ckeditor/ckeditor.js"></script>
+  <script>
+    function requiredField(jQueryInput) {
+      if (jQueryInput.val() == "" || jQueryInput.val() === null) {
+        return "This field is required";
+      }
+    }
+
+    function submitSave() {
+      var hasError = false;
+      jQuery(":input").each(function() {
+        if (jQuery(this).hasClass("psSpecialValidate")) {
+          psSpecialValidate.validateSpecial(jQuery(this));
+          if (!hasError && jQuery(this).hasClass("error")) {
+            jDialog("Please fill in all required fields");
+            hasError = true;
+          }
+        }
+      });
+
+      if (hasError) {
+        return;
+      }
+
+      loadingDialog();
+      jQuery("#saveForm").submit();
+
+    }
+
+    function toggleEnabled() {
+      if (jQuery("#enabled").val() == '0') {
+        jQuery("#settingsTable tr:gt(0)").hide();
+      } else {
+        jQuery("#settingsTable tr:gt(0)").show();
+      }
+    }
+
+    jQuery(document).ready(function() {
+      toggleEnabled();
+      jQuery(".tooltip").tooltip();
+    });
+  </script>
+</head>
+<body>
+	~[wc:admin_header_css]
+	<!-- breadcrumb start -->
+	<a href="/admin/home.html" target="_top">~[text:psx.html.admin.home.start_page]</a> &gt; <a href="/admin/psugasia/attendancenotices/home.html" target="_top">Attendance Notices</a> &gt; Settings
+    <!-- breadcrumb end -->
+
+<!-- start of main menu and content -->
+	~[wc:admin_navigation_css]
+<!-- Start of Page -->
+	<h1>Settings - ~[schoolname]</h1>
+<!-- start of content area -->
+
+  ~[if#saved.~(gpv.saved)=1]
+  <div class="feedback-confirm">Record saved</div>
+  [/if#saved]
+
+  <div class="feedback-info">These settings only apply to the currently selected school</div>
+
+  <div class="box-round">
+    <form action="settings.html" method="POST" id="saveForm">
+    ~[DirectTable.Select:u_attendancenotices_settings;ID:~(gpv.id)]
+    <input type="hidden" name="[u_attendancenotices_settings]schoolid" value="~(curschoolid)">
+    <input type="hidden" name="ac" value="prim">
+    <input type="hidden" name="saved" value="1">
+    <table class="linkDescList" id="settingsTable">
+      <tr>
+        <td class="bold">Status</td>
+        <td>
+          <select name="[u_attendancenotices_settings]enabled" id="enabled" class="psSpecialValidate" data-specialfunction="requiredField" onchange="toggleEnabled()">
+            <option value="1">Enabled</option>
+            <option value="0">Disabled</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Default Attendance Mode</td>
+        <td>
+          <select name="[u_attendancenotices_settings]attendancemode" class="psSpecialValidate" data-specialfunction="requiredField">
+            <option value="meeting">Meeting</option>
+            <option value="daily">Daily</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Show Weekends</td>
+        <td>
+          <select id="calendar_weekend" name="[u_attendancenotices_settings]calendar_weekend" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Show Sundays and Saturdays on the Attendance Notice Calendar">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Show Calendar Notes</td>
+        <td>
+          <select id="calendar_notes" name="[u_attendancenotices_settings]calendar_notes" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Show 'Note' text entered in the Calendar Setup on the Attendance Notice Calendar">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Show Cycle Days</td>
+        <td>
+          <select id="calendar_cycledays" name="[u_attendancenotices_settings]calendar_cycledays" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Show Cycle Day names on the Attendance Notice Calendar">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Show All Day Checkbox</td>
+        <td>
+          <select id="show_allday" name="[u_attendancenotices_settings]show_allday" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Show the All Day checkbox to parents when entering Attendance Notice.  This setting only affects the parent portal (admin side will always see the checkbox).">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Require Remarks</td>
+        <td>
+          <select id="require_remarks" name="[u_attendancenotices_settings]require_remarks" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Require parents to enter a remark.  This setting only affects the parent portal (admin side will always see the checkbox).">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Calendar Start Time</td>
+        <td>
+          <input id="calendar_starttime" type="time" name="[u_attendancenotices_settings]calendar_starttime" value="" size="6" maxlength="5" placeholder="HH:MM" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Start time of each day in Week/Day views on the Attendance Notice Calendar">
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Calendar End Time</td>
+        <td>
+          <input id="calendar_endtime" type="time" name="[u_attendancenotices_settings]calendar_endtime" value="" size="6" maxlength="5" placeholder="HH:MM" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="End time of each day in Week/Day views on the Attendance Notice Calendar">
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Calendar Slot Duration</td>
+        <td>
+          <input id="calendar_slotduration" type="text" name="[u_attendancenotices_settings]calendar_slotduration" value="" size="6" maxlength="5" placeholder="HH:MM" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Size of each box in HH:MI format in Week/Day views on the Attendance Notice Calendar (eg 01:00 to make each box one hour long)">
+        </td>
+      </tr>
+      <tr>
+        <td class="bold">Reasons List</td>
+        <td>
+          <input type="text" name="[u_attendancenotices_settings]reasonslist" id="reasonslist" style="width:400px;" class="tooltip" title="Dropdown list of reasons to choose from, semicolon separated, dropdown will only display if this list is defined" value="">
+        </td>
+      </tr>
+      <tr>
+        <td class="bold" title="Maximum number of unprocessed requests parents are allowed to enter">Maximum Allowed Requests</td>
+        <td>
+          <input type="number" id="maxrequests" name="[u_attendancenotices_settings]maxrequests" value="0" class="psSpecialValidate tooltip" data-specialfunction="requiredField" title="Maximum number of attendance notices a parent can enter.  Processed attendance notices are not counted.  Set to 0 if no limit.">
+        </td>
+      </tr>
+      <tr>
+        <td class="bold" colspan="2">Message to show when maximum is reached</td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <textarea name="[u_attendancenotices_settings]maxreachedmessage" id="maxreachedmessage"></textarea>
+        </td>
+      </tr>
+    </table>
+    <div class="button-row">
+      <button type="button" onclick="submitSave()">Submit</button>
+    </div>
+    </form>
+  </div>
+
+  <script>
+    CKEDITOR.replace('maxreachedmessage', {
+      height: 200
+    });
+  </script>
+<!-- end of content area -->
+	~[wc:admin_footer_css]
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "pages": [
+	{
+	  "htmlID": "PSUGAsiaANStudentsAttendanceNotices",
+	  "title": "Attendance Notices",
+	  "version": "2.0.0.0",
+	  "contextType": "student",
+	  "sortOrder": 99999,
+	  "pageURL": "/admin/students/attendancenotices/calendar.html?frn=~(studentfrn)",
+		"districtLevelContext": 1,
+	  "parentHTMLID": "navStudentAttendanceSection"
+	}
+  ]
+}

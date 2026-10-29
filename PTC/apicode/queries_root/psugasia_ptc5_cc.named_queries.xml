@@ -1,0 +1,55 @@
+<queries>
+  <query name="com.psugasia.ptc5.cc.list" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="recordid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_cc.id">result.id</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.originalteacher</column>
+      <column column="u_ptc5_cc.schoolstaffdcid">result.schoolstaffdcid</column>
+      <column column="teachers.lastfirst">result.replacingteacher</column>
+      <column column="courses.dcid">result.coursedcid</column>
+      <column column="courses.course_number">result.course_number</column>
+      <column column="sections.dcid">result.sectiondcid</column>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.student</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pc.id,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+et.lastfirst as originalteacher,
+pc.schoolstaffdcid,
+ot.lastfirst as replacingteacher,
+c.dcid as coursedcid,
+c.course_number,
+e.dcid as sectiondcid,
+s.dcid as studentdcid,
+s.lastfirst as student
+
+from u_ptc5_cc pc
+inner join cc d on pc.ccid = d.id
+inner join sections e on d.sectionid = e.id
+inner join courses c on e.course_number = c.course_number
+inner join teachers et on e.teacher = et.id
+inner join teachers ot on pc.schoolstaffdcid = ot.dcid
+inner join students s on d.studentid = s.id
+
+where
+pc.u_ptc5_sessionsid = :sessionid
+and (:recordid = '-1' or pc.id = :recordid)
+
+order by 
+s.lastfirst,
+c.course_name,
+e.course_number,
+e.section_number
+]]>
+    </sql>
+  </query>
+</queries>

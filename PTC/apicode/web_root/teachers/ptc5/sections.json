@@ -1,0 +1,25 @@
+[
+~[tlist_sql;
+select distinct
+e.dcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number
+
+from sections e
+inner join courses c on e.course_number = c.course_number
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+
+where
+r.yearid = '~(gpv.yid)'
+and ('~(gpv.hid)' = '0' or e.schoolid = '~(gpv.hid)')
+
+order by 3
+;]
+  {
+    "dcid":"~(dcid;json)",
+    "course_name":"~(course_name;json)",
+    "section_number":"~(section_number;json)"
+  },
+[/tlist_sql]
+  {}
+]

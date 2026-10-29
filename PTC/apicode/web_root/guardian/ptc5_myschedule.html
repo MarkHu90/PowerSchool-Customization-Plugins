@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.title]</title>
+<!-- start of page body --> 
+~[wc:guardian_header] 
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/sortable/sortable.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/fontawesome/css/all.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/sortable/sortable.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const params = {
+      a: '~(curschoolid)',
+      b: '~(curyearid)',
+      //b: '34',//debug
+      c: '~(studentrn)',
+      d: '~[if#student.isstudent]student[else#student]parent[/if#student]',
+      p: '~[x:userid;guardianid]',
+      n: [~[tlist_sql;select studentsdcid from guardianstudent where guardianid = ~[x:userid;guardianid]]~(studentsdcid;js),[/tlist_sql]-1]
+    };
+
+    ~[tlist_sql;
+    select 
+    licensekey,
+    parentmessage
+
+    from u_ptc5_settings
+    
+    where rownum=1;]
+    const licenceKey = '~(licensekey;js)';
+    const enableParentMessage = (parseInt('~(parentmessage;js)') === 1 ? true : false);
+    [/tlist_sql]
+    let sessions;
+    let sessionIndex = sessionStorage.getItem('ptc5sessionindex_~(studentrn)');
+
+    async function loadSessions(resetStorage) {
+      if (resetStorage)
+        sessionIndex = null;
+
+      $j('#button_switchsessions').hide();
+      $j('#div_opensession').hide();
+      $j('#div_multiplesessions').hide();
+      $j('#span_title').html('');
+      if (!enableParentMessage)
+        $j('#th_parentmessage').remove();
+      sessions = await getPQ(
+        'com.psugasia.ptc5.guardian.open', 
+        0, 
+        {
+          'a': params.a,
+          'b': params.b,
+          'c': params.c,
+          'd': params.d,
+          'p': params.p
+        },
+        [
+          'id',
+          'name',
+          'instructions',
+          'priority_limit',
+          'general_limit',
+          'ispriority',
+          'termdcids',
+          'checkteacherschedule',
+          'siblingtimeslots',
+          'studentmessage'
+        ],
+        false
+      );
+      if (sessions?.length === 0)
+        $j('#div_noopensessions').show();
+      else if (sessionIndex !== null)
+        showSession(sessionIndex);
+      else if (sessions?.length > 1) {
+        $j('#ul_multiplesessions').empty();
+        sessions.forEach(function(session, i) {
+          $j('#ul_multiplesessions').append('<li><button type="button" onclick="showSession('+i+')">'+session.name+'</button></li>');
+        });
+        $j('#div_multiplesessions').show();
+      }
+      else
+        showSession(0);
+    }
+
+    async function showSession(index) {
+      loadingDialog();
+      sessionStorage.setItem('ptc5sessionindex_~(studentrn)', index);
+      sessionIndex = index;
+      let session = sessions[sessionIndex];
+      if (!sessions[sessionIndex])
+        loadSessions(true);
+      
+      if (sessions.length > 1) $j('#button_switchsessions').show();
+
+      $j('#div_multiplesessions').hide();
+      $j('#div_mustmeet').hide();
+      $j('#div_nobookings').hide();
+      $j('#div_bookings').hide();
+
+      if (String(session.instructions).trim() != '')
+        $j('#r_instructions').html(session.instructions).show();
+      if (String(session.studentmessage).trim() != '')
+        $j('#r_studentmessage').html(session.studentmessage).show();
+      if (String(session.name).trim() != '')
+        $j('#span_title').html(' ('+session.name+')');
+      
+      //let termDCIDs = session.termdcids.split(',').filter(Number);
+      let termDCIDs = session.termdcids.slice(1,-1);
+
+      let sections = await getPSJSON(
+        '/guardian/ptc5_sections.json',
+        {
+          a: params.a,
+          c: params.c,
+          e: termDCIDs,
+          f: session.id,
+          g: session.ispriority
+        },
+        [
+          'first_name',
+          'sectiondcid',
+          'course_name',
+          'section_number',
+          'schoolstaffdcid',
+          'teacher',
+          'room',
+          'onlineurl',
+          'pmmeid',
+          'message',
+          'pmmid',
+          'teachermessage'
+        ],
+        false
+      );
+
+      $j('#r_sections tbody').empty();
+      sections.forEach(function(section) {
+        let onlineURL = '';
+        if (String(section.onlineurl).startsWith('http'))
+          onlineURL = section.onlineurl+' <a href="'+section.onlineurl+'" class="button" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>';
+        let trHTML  = $j('<tr data-sectiondcid="'+section.sectiondcid+'">'
+                      + '<td class="timeslot"></td>'
+                      + '<td class="location">'+section.room+'</td>'
+                      + '<td class="url">'+onlineURL+'</td>'
+                      + '<td class="course" data-sort="'+section.course_name+'">'+section.course_name+'</td>'
+                      + '<td class="section">'+section.section_number+'</td>'
+                      + '<td class="teacher">'+section.teacher+'</td>'
+                      + (enableParentMessage ? '<td class="parentmessage preserveLineBreaks"></td>' : '')
+                    + '</tr>');
+        $j('#r_sections tbody').append(trHTML);
+        trHTML.data('section', section);
+        if (section.pmmeid || section.pmmid) {
+          trHTML.addClass('mustmeet');
+          $j('td.course', trHTML).prepend('<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i> ');
+          $j('td.course', trHTML).attr('data-sort', '!'+section.course_name);
+          $j('#div_mustmeet').show();
+          if (section.message || section.teachermessage)
+            $j('td.course', trHTML).append('<div class="mustmeetmessage preserveLineBreaks">'+(section.message || section.teachermessage)+'</div>');
+        }
+      });
+
+      let bookings = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/guardianbook.php', 
+        {
+          a: licenceKey,
+          b: session.id,
+          //c: params.c,
+          n: params.n,
+          h: 'booked'
+        },
+        [
+          'id',
+          'timeslotid',
+          'sectiondcid',
+          'parentmessage',
+          'lastupdated',
+          'studentdcid'
+        ],
+        false
+      );
+
+      bookings = bookings.filter((e) => parseInt(e.studentdcid) === parseInt(params.c));
+
+      if (bookings.length > 0)
+        $j('#div_bookings').show();
+      if (bookings.length === 0)
+        $j('#div_nobookings').show();
+
+      $j('#r_sections tbody tr').each(async function(k,v) {
+        let sectionDCID = $j(v).data('sectiondcid');
+        let booked = bookings.find((e) => parseInt(e.sectiondcid) === parseInt(sectionDCID));
+        let timeslotHTML;
+        if (booked) {
+          let timeslot = await getPQ(
+            'com.psugasia.ptc5.timeslots.single', 
+            0, 
+            {
+              'timeslotid': booked.timeslotid
+            },
+            [
+              'startdt',
+              'enddt'
+            ],
+            true
+          );
+          let startT = timeslot.startdt.split('T')[1];
+          let endT = timeslot.enddt.split('T')[1];
+          let startD = ptcDDMONString(new Date(timeslot.startdt));
+          timeslotHTML = startT+' - '+endT+' ('+startD+')';
+          $j(v).data('booked', booked);
+          $j(v).data('timeslot', timeslot);
+          $j('td.timeslot', v).attr('data-sort', timeslot.startdt);
+          $j('td.parentmessage', v).html(booked.parentmessage);
+        }
+        else
+          timeslotHTML = '';
+        $j('td.timeslot', v).html(timeslotHTML);
+        
+        if (k === $j('#r_sections tbody tr').length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          $j('#r_sections tbody tr').each(function(k2,v2) {
+            let sectionDCID2 = $j(v2).data('sectiondcid');
+            if (!bookings.some((e) => parseInt(e.sectiondcid) === parseInt(sectionDCID2)))
+              $j(v2).remove();
+          });
+          document.getElementById('r_sections_meetingdt').click();
+        }
+      });
+
+      $j('#div_opensession').show();
+      closeLoading();
+    }
+
+    async function downloadICS() {
+      const timeZoneCode = '/timezones-ical-library/~[tlist_sql;select timezone_code from u_ptc5_settings where rownum=1;]~(timezone_code)[/tlist_sql]';
+      const vtimezone = await fetch('/guardian/ptc5_vtimezone.html', {
+        method: "GET"
+      });
+      const icsVTimeZone = await vtimezone.text();
+
+      let icsEvents = '';
+      $j('#r_sections tbody tr').each(function(k,v) {
+        let section = $j(v).data('section');
+        let booked = $j(v).data('booked');
+        let timeslot = $j(v).data('timeslot');
+        if (section && booked && timeslot) {
+          let vEvent  = 'BEGIN:VEVENT\n'
+                      + 'SUMMARY:['+section.first_name+'] '+section.teacher+' ('+section.course_name+')\n'
+                      + 'DTSTART;TZID='+timeZoneCode+':'+timeslot.startdt.replaceAll('-','').replaceAll(':','')+'00\n'
+                      + 'DTEND;TZID='+timeZoneCode+':'+timeslot.enddt.replaceAll('-','').replaceAll(':','')+'00\n'
+                      + 'LOCATION:'+(section.onlineurl || section.room)+'\n'
+                      + (enableParentMessage ? 'DESCRIPTION:'+booked.parentmessage.replaceAll('\n','\\n')+'\n' : '')
+                      + 'END:VEVENT\n';
+          icsEvents += vEvent;
+        }
+      });
+
+      let icsHeader = 'BEGIN:VCALENDAR\n'
+                    + 'VERSION:2.0\n'
+                    + 'CALSCALE:GREGORIAN\n';
+
+
+      let icsFooter = 'END:VCALENDAR\n';
+
+      let ics = icsHeader + icsVTimeZone + icsEvents + icsFooter;
+
+      let textFileAsBlob = new Blob([ics], { type: 'text/plain' });
+      let downloadLink = document.createElement('a');
+      downloadLink.download = 'ptc.ics';
+      downloadLink.innerHTML = 'Download File';
+
+      if (window.webkitURL != null) {
+        downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+      } else {
+        downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+      }
+
+      downloadLink.click();
+    }
+
+    $j(function() {
+      loadSessions();
+    });
+
+  </script>
+  <style>
+    #button_switchsessions {
+      margin: 25px 20px;
+      display: none;
+    }
+    #ul_multiplesessions {
+      margin-inline-start: 0;
+    }
+    #ul_multiplesessions li {
+      list-style:none;
+    }
+    #r_timeslot_notimeslots {
+      display: inline-block;
+      margin: 0;
+    }
+    tr.mustmeet {
+      background-color: plum !important;
+    }
+    div.mustmeetmessage {
+      color: red !important;
+    }
+    #span_title {
+      font-size: 100%;
+      font-weight: bold;
+      float: unset;
+    }
+    div.box-round > p:first-child {
+      margin-top: 0;
+    }
+  </style>
+
+<div style="display: flex; justify-content: space-between;">
+  <div><h1>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.title]<span id="span_title"></span></h1></div>
+  <div><button type="button" id="button_switchsessions" onclick="loadSessions(true)">~[text:psx.htmlc.guardian.psugasia_ptc5.switchsession]</button></div>
+</div>
+  
+<!-- start student content --> 
+
+<ul class="tabs shown_tabs">
+  <li>
+    <a href="ptc5_bookings.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.makeeditbookings]</a>
+  </li>
+  <li class="selected">
+    <a href="ptc5_myschedule.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.myschedule]</a>
+  </li>
+  <li>
+    <a href="ptc5_familyschedule.html">~[text:psx.htmlc.guardian.psugasia_ptc5.tabs.familyschedule]</a>
+  </li>
+</ul>
+
+<div class="feedback-info" id="div_noopensessions" style="display: none;">
+  ~[text:psx.htmlc.guardian.psugasia_ptc5.noopensessions]
+</div>
+
+<div class="box-round" id="div_multiplesessions" style="display: none;">
+  <p>
+    ~[text:psx.htmlc.guardian.psugasia_ptc5.multiplesessions]
+    <ul id="ul_multiplesessions"></ul>
+  </p>
+</div>
+
+<div id="div_opensession" style="display: none;">
+  <div class="feedback-alert" id="div_nobookings" style="display: none;">
+    ~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.youhavenotmadeanybookingsyet]
+  </div>
+  <div class="box-round" id="div_bookings" style="display: none; padding-top: 10px;">
+    <p id="div_mustmeet" class="feedback-alert" style="display: none;">
+      ~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.pleasemakebookingsforallcoursesmarkedwith]<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i>
+    </p>
+    <table class="grid sortable asc" id="r_sections" style="margin-top: 10px;">
+      <thead>
+        <tr>
+          <th id="r_sections_meetingdt">~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.meetingdatetime]</th>
+          <th>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.location]</th>
+          <th>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.url]</th>
+          <th>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.course]</th>
+          <th>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.section]</th>
+          <th>~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.teacher]</th>
+          <th id="th_parentmessage">~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.messagetoteacher]</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <p class="feedback-info">
+      ~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.icsexplanation]
+      <br>
+      <button type="button" onclick="downloadICS()" style="margin-inline-start: 0;">~[text:psx.htmlc.guardian.psugasia_ptc5.myschedule.downloadicsfile]</button>
+    </p>
+  </div>
+</div>
+  
+<!-- end student content --> 
+<!-- Sets the navigation highlighting: the value is the ID value of the navigation element you want to highlight--> 
+<input id="activeNav" type="hidden" value="#btn-ptc5"/> 
+<!-- end of page body --> 
+~[wc:guardian_footer] 
+</body> 
+</html>

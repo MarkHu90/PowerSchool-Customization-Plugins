@@ -1,0 +1,15 @@
+~[tlist_sql;
+select
+count(1) as c
+
+from u_attendancenotices_requests uanr
+inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+inner join students s on uanr.studentsdcid = s.dcid
+where
+uanr.schoolid = '~(curschoolid)'
+and y.yearid = '~(curyearid)'
+and nvl(uanr.processed,0) = 0
+and s.enroll_status = 0
+;]
+{"count":"~(c;json)"}
+[/tlist_sql]

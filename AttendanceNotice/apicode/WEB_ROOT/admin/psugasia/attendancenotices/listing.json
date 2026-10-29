@@ -1,0 +1,116 @@
+~[if#source.~(gpv.src)=tiles]
+[
+  ~[tlist_sql;
+  select
+  'notprocessed' as id,
+  'Not Processed' as name,
+  count(1) as c
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  and nvl(uanr.processed,0) = 0
+
+  union
+
+  select
+  'processed' as id,
+  'Processed' as name,
+  count(1) as c
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  and nvl(uanr.processed,0) = 1
+
+  union
+
+  select
+  'personal' as id,
+  'Personal Leave' as name,
+  count(1) as c
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  and nvl(uanr.personal_leave,0) = 1
+
+  union
+
+  select
+  'rejected' as id,
+  'Rejected' as name,
+  count(1) as c
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  and nvl(uanr.rejected,0) = 1
+  ;]
+    {"id":"~(id;json)","name":"~(name;json)","count":~(c;json),"carouselItem":true},
+  [/tlist_sql]
+{}]
+[else#source]
+[
+  ~[tlist_sql;
+  select
+  uanr.id,
+  s.lastfirst,
+  s.student_number,
+  s.dcid,
+  s.grade_level,
+  decode(nvl(uanr.processed,0),1,'Yes','No') as processed,
+  uanr.processed_by,
+  uanr.processed_when,
+  uanr.reason,
+  uanr.remarks,
+  to_char(uanr.date_end,'YYYY-MM-DD') as date_end,
+  to_char(uanr.date_start,'YYYY-MM-DD') as date_start,
+  uanr.time_end,
+  uanr.time_start,
+  decode(nvl(uanr.allday,0),1,'Yes','No') as allday,
+  decode(nvl(uanr.personal_leave,0),1,'Yes','No') as personal_leave,
+  decode(nvl(uanr.principal_approved,0),1,'Yes','No') as principal_approved,
+  uanr.whocreated,
+  to_char(uanr.whencreated,'YYYY-MM-DD') as whencreated,
+  to_char(nvl(uanr.whenmodified,uanr.whencreated),'YYYY-MM-DD HH24'||chr(58)||'MI'||chr(58)||'SS') as lastupdated,
+  decode(nvl(uanr.rejected,0),1,'Yes','No') as rejected
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+  inner join students s on uanr.studentsdcid = s.dcid
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  ~[if#tile.~(gpv.tile)<>all]
+    ~[if#personal.~(gpv.tile)=personal]
+  and nvl(uanr.personal_leave,0) = 1
+    [/if#personal]
+    ~[if#processed.~(gpv.tile)=processed]
+  and nvl(uanr.processed,0) = 1
+    [/if#processed]
+    ~[if#rejected.~(gpv.tile)=rejected]
+  and nvl(uanr.rejected,0) = 1
+    [/if#rejected]
+    ~[if#notprocessed.~(gpv.tile)=notprocessed]
+  and nvl(uanr.processed,0) = 0
+    [/if#notprocessed]
+  [/if#tile]
+
+  order by s.lastfirst, uanr.date_start, uanr.time_start
+;]{"id":"~(id;json)","lastfirst":"~(lastfirst;json)","student_number":"~(student_number;json)","dcid":"~(dcid;json)","grade_level":"~(grade_level;json)","processed":"~(processed;json)","processed_by":"~(processed_by;json)","processed_when":"~(processed_when;json)","reason":"~(reason;json)","remarks":"~(remarks;json)","date_end":"~(date_end;json)","date_start":"~(date_start;json)","time_end":"~(time_end;json)","time_start":"~(time_start;json)","allday":"~(allday;json)","personal_leave":"~(personal_leave;json)","principal_approved":"~(principal_approved;json)","whocreated":"~(whocreated;json)","whencreated":"~(whencreated;json)","lastupdated":"~(lastupdated;json)","rejected":"~(rejected;json)"},[/tlist_sql]
+{}]
+[/if#source]

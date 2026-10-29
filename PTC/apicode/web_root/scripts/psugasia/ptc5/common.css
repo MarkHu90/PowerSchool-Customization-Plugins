@@ -1,0 +1,37 @@
+.centered {
+  text-align: center !important;
+}
+
+button.explanation {
+  padding-top: 0;
+  padding-bottom: 0;
+  cursor: help;
+  background-color: darkblue;
+}
+
+span.requiredInput:after {
+  content: "*";
+  color: red;
+  font-weight: bold;
+}
+
+.requiredInputMissing {
+  background-color: pink !important;
+  box-shadow: 0 0 5px red !important;
+}
+
+.ui-tooltip {
+  max-width: 70vw !important;
+}
+.ui-tooltip-content {
+  max-width: 70vw !important;
+}
+
+span input[type="checkbox"] + label {
+  min-width: 0 !important;
+  margin-inline-end: 15px !important;
+}
+
+.preserveLineBreaks {
+  white-space: pre-wrap;
+}

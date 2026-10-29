@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<psExtension xmlns="http://www.powerschool.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.powerschool.com psextension.xsd">
+    <extensionname>u_ptc5</extensionname>
+    <extendedTable type="standalone" dbTableName="u_ptc5_settings" childName="u_ptc5_settings" comment="">
+        <field name="licensekey" type="String" length="50"/>
+        <field name="timezone_code" type="String" length="50"/>
+        <field name="timezone_ics" type="Clob" length="50"/>
+        <field name="smtp_server" type="String" length="100"/>
+        <field name="smtp_username" type="String" length="50"/>
+        <field name="smtp_password" type="String" length="50"/>
+        <field name="email_from" type="String" length="100"/>
+        <field name="email_cc" type="String" length="100"/>
+        <field name="email_bcc" type="String" length="100"/>
+        <field name="parentmessage" type="Boolean" defaultValue="1" comment="1 = enabled, 0 = disabled"/>
+    </extendedTable>
+    <extendedTable type="standalone" dbTableName="u_ptc5_sessions" childName="u_ptc5_sessions" comment="">
+        <field name="schoolid" type="Long"/>
+        <field name="yearid" type="Long"/>
+        <field name="name" type="String" length="100"/>
+        <field name="remarks" type="Clob"/>
+        <field name="instructions" type="Clob"/>
+        <field name="status" type="Boolean" defaultValue="1" comment="1 = enabled, 0 = disabled"/>
+
+        <field name="priority_open" type="String" length="16" comment="Priority signup start date/time in YYYY-MM-DDTHH:MI format"/>
+        <field name="priority_close" type="String" length="16" comment="Priority signup end date/time in YYYY-MM-DDTHH:MI format"/>
+        <field name="priority_limit" type="Integer" defaultValue="0" comment="Maximum number of bookings per student allowed in priority signup period, set to 0 if no maximum"/>
+        <field name="general_open" type="String" length="16" comment="General signup start date/time in YYYY-MM-DDTHH:MI format"/>
+        <field name="general_close" type="String" length="16" comment="General signup end date/time in YYYY-MM-DDTHH:MI format"/>
+        <field name="general_limit" type="Integer" defaultValue="0" comment="Maximum number of bookings per student allowed in general signup period, set to 0 if no maximum"/>
+        
+        <field name="studentsignup" type="Boolean" defaultValue="0" comment="1 = allow students to sign up, 0 = only parents will be able to sign up"/>
+        <field name="grade_levels" type="String" length="100" comment="Comma separated list of grade levels allowed to signup in this session, value must have leading and trailing comma"/>
+        <field name="termdcids" type="String" length="500" comment="Comma separated list of terms to include sections from for this session, value must have leading and trailing comma"/>
+        <field name="checkteacherschedule" type="Boolean" defaultValue="1" comment="1 = automatically block off timeslots that overlap with teacher's schedule, 0 = don't auto block"/>
+        <field name="blockapproval" type="Boolean" defaultValue="1" comment="1 = do not honor timeslot blocks unless they are approved, 0 = honor timeslot blocks regardless of approved or not"/>
+        <field name="siblingtimeslots" type="Boolean" defaultValue="1" comment="1 = do not allow booking the same timeslot across siblings, 0 = allow booking the same timeslot across siblings"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_sessions" dbTableName="u_ptc5_timeslots" childName="u_ptc5_timeslots" comment="">
+        <field name="startdt" type="String" length="16" comment="Start date/time of timeslot in YYYY-MM-DDTHH:MI format"/>
+        <field name="enddt" type="String" length="16" comment="End date/time of timeslot in YYYY-MM-DDTHH:MI format"/>
+
+        <field name="grade_levels" type="String" length="100" comment="Comma separated list of grade Levels allowed to book this timeslot, value must have leading and trailing comma"/>
+        <field name="priorityonly" type="Boolean" defaultValue="0" comment="1 = timeslot can only be booked in priority signup period, 0 = timeslot can be booked in any signup period"/>
+        <field name="admin" type="Boolean" defaultValue="0" comment="1 = timeslot can only be booked by admin user, 0 = timeslot can be booked by anybody"/>
+        <field name="mustmeet" type="Boolean" defaultValue="0" comment="1 = timeslot can only be booked by must meet students, 0 = timeslot can be booked by anybody"/>
+        <field name="capacity" type="Integer" defaultValue="1" comment="Number of students that can be booked into timeslot (used for multi student conferences)"/>
+        
+        <field name="remarks" type="Clob"/>
+        <field name="status" type="Boolean" defaultValue="1" comment="1 = enabled, 0 = disabled"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_timeslots" dbTableName="u_ptc5_timeslots_courses" childName="u_ptc5_timeslots_courses" comment="Courses the associated timeslot can only be booked for, not required if timeslot can be booked for all courses">
+        <field name="coursedcid" type="Long"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_timeslots" dbTableName="u_ptc5_timeslots_sections" childName="u_ptc5_timeslots_sections" comment="Sections the associated timeslot can only be booked for, not required if timeslot can be booked for all sections">
+        <field name="sectiondcid" type="Long"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_timeslots" dbTableName="u_ptc5_timeslots_schoolstaff" childName="u_ptc5_timeslots_schoolstaff" comment="Teachers the associated timeslot can only be booked for, not required if timeslot can be booked for all teachers">
+        <field name="schoolstaffdcid" type="Long"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_timeslots" dbTableName="u_ptc5_timeslots_blocked" childName="u_ptc5_timeslots_blocked" comment="Blocked timeslots">
+        <field name="schoolstaffdcid" type="Long" comment="SchoolstaffDCID of teacher the block is for"/>
+        <field name="requester" type="String" length="100" comment="Name of user who requested block"/>
+        <field name="approver" type="String" length="100" comment="Name of user who approved block"/>
+        <field name="status" type="Integer" defaultValue="0" comment="0 = pending, 1 = approved, 2 = declined"/>
+        <field name="remarks" type="Clob"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_sessions" dbTableName="u_ptc_mustmeet" childName="u_ptc_mustmeet" comment="Class enrollments that require bookings">
+        <field name="ccid" type="Long"/>
+        <field name="teachermessage" type="Clob"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_sessions" dbTableName="u_ptc_mustmeetsections" childName="u_ptc_mustmeetsections" comment="Sections that require bookings">
+        <field name="sectiondcid" type="Long"/>
+        <field name="message" type="Clob"/>
+    </extendedTable>
+    <extendedTable coreTable="courses" dbTableName="u_courses_ptc5" comment="">
+        <field name="excluded" type="Boolean" defaultValue="0" comment="1 = exclude course from PTC, 0 = do not exclude course from PTC"/>
+    </extendedTable>
+    <extendedTable coreTable="sections" dbTableName="u_sections_ptc5" comment="">
+        <field name="excluded" type="Boolean" defaultValue="0" comment="1 = exclude section from PTC, 0 = do not exclude section from PTC"/>
+    </extendedTable>
+    <extendedTable coreTable="students" dbTableName="u_students_ptc5" comment="">
+        <field name="excluded" type="Boolean" defaultValue="0" comment="1 = exclude student from PTC, 0 = do not exclude student from PTC"/>
+        <field name="priorityonly" type="Boolean" defaultValue="0" comment="1 = will be allowed to signup in priority period, 0 = will not be allowed to signup in priority period"/>
+        <field name="message" type="Clob" comment="Message for this student (will display on PTC signup page)"/>
+    </extendedTable>
+    <extendedTable coreTable="schoolstaff" dbTableName="u_schoolstaff_ptc5" comment="">
+        <field name="excluded" type="Boolean" defaultValue="0" comment="1 = exclude teacher from PTC, 0 = do not exclude teacher from PTC"/>
+        <field name="room" type="String" length="200" comment="Alternate room location to show instead of the section room"/>
+        <field name="onlineurl" type="String" length="500" comment="Full URL for online meetings (include http:// or https://)"/>
+    </extendedTable>
+    <extendedTable coreTable="u_ptc5_sessions" dbTableName="u_ptc5_cc" childName="u_ptc5_cc" comment="">
+        <field name="ccid" type="Long"/>
+        <field name="schoolstaffdcid" type="Long" comment="SchoolstaffDCID of teacher to use for PTC instead of teacher(s) set in section of associated class enrollment"/>
+    </extendedTable>
+    <extendedTable type="standalone" dbTableName="u_ptc5_bookingremarks" childName="u_ptc5_bookingremarks" comment="Teachers remarks on bookings">
+        <field name="bookingid" type="Long"/>
+        <field name="remarks" type="Clob"/>
+    </extendedTable>
+        <extendedTable type="standalone" dbTableName="u_ptc5_testingcontacts" childName="u_ptc5_testingcontacts" comment="">
+        <field name="personid" type="Long"/>
+        <field name="remarks" type="Clob"/>
+    </extendedTable>
+</psExtension>

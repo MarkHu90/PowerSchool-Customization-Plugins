@@ -1,0 +1,200 @@
+<queries>
+  <query name="com.psugasia.ptc5.mustmeet.list" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="recordid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc_mustmeet.id">result.id</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.teacher</column>
+      <column column="u_ptc_mustmeet.teachermessage">result.teachermessage</column>
+      <column column="courses.dcid">result.coursedcid</column>
+      <column column="courses.course_number">result.course_number</column>
+      <column column="sections.dcid">result.sectiondcid</column>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.student</column>
+      <column column="u_ptc_mustmeetsections.id">result.pmmeid</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pmm.id,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst as teacher,
+pmm.teachermessage,
+c.dcid as coursedcid,
+c.course_number,
+e.dcid as sectiondcid,
+s.dcid as studentdcid,
+s.lastfirst as student,
+pmme.id as pmmeid
+
+from u_ptc_mustmeet pmm
+inner join cc d on pmm.ccid = d.id
+inner join sections e on d.sectionid = e.id
+inner join courses c on e.course_number = c.course_number
+inner join teachers t on e.teacher = t.id
+inner join students s on d.studentid = s.id
+left outer join u_ptc_mustmeetsections pmme on e.dcid = pmme.sectiondcid
+
+where
+pmm.u_ptc5_sessionsid = :sessionid
+and (:recordid = '-1' or pmm.id = :recordid)
+
+order by 
+s.lastfirst,
+c.course_name,
+e.course_number,
+e.section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.mustmeet.teachers.sections" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="userdcid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="sections.id">result.sectionid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="u_ptc_mustmeetsections.id">result.pmmeid</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+e.id as sectionid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+pmme.id as pmmeid
+
+from sections e
+inner join courses c on e.course_number = c.course_number
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join sectionteacher et on e.id = et.sectionid
+inner join teachers t on et.teacherid = t.id
+inner join u_ptc5_sessions ps on e.schoolid = ps.schoolid and r.yearid = ps.yearid
+left outer join u_ptc_mustmeetsections pmme on ps.id = pmme.u_ptc5_sessionsid and e.dcid = pmme.sectiondcid
+
+where
+t.users_dcid = :userdcid
+and ps.id = :sessionid
+
+order by c.course_name, section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.mustmeet.teachers.sections.enrollments" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="sectionids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="sections.id">result.sectionid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="cc.id">result.ccid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="u_students_ptc5.excluded">result.excluded</column>
+      <column column="u_students_ptc5.priorityonly">result.priorityonly</column>
+      <column column="u_ptc_mustmeet.id">result.recordid</column>
+      <column column="u_ptc_mustmeet.teachermessage">result.teachermessage</column>
+      <column column="u_ptc_mustmeetsections.id">result.pmmeid</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+e.id as sectionid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+d.id as ccid,
+s.lastfirst,
+ps.excluded,
+ps.priorityonly,
+pmm.id as recordid,
+pmm.teachermessage,
+pmme.id as pmmeid
+
+from sections e
+inner join cc d on e.id = d.sectionid
+inner join students s on d.studentid = s.id
+left outer join u_students_ptc5 ps on s.dcid = ps.studentsdcid
+inner join courses c on e.course_number = c.course_number
+left outer join u_ptc_mustmeet pmm on d.id = pmm.ccid and pmm.u_ptc5_sessionsid = :sessionid
+left outer join u_ptc_mustmeetsections pmme on pmme.u_ptc5_sessionsid = :sessionid and e.dcid = pmme.sectiondcid
+
+where
+e.id in (:sectionids)
+
+order by c.course_name, section_number, s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.mustmeet.sections" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="recordid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc_mustmeetsections.id">result.id</column>
+      <column column="u_ptc_mustmeetsections.sectiondcid">result.sectiondcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="u_ptc_mustmeetsections.message">result.message</column>
+      <column column="courses.dcid">result.coursedcid</column>
+      <column column="courses.course_number">result.course_number</column>
+      <column column="terms.name">result.term</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pmme.id,
+pmme.sectiondcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst,
+pmme.message,
+c.dcid as coursedcid,
+c.course_number,
+r.name as term
+
+from u_ptc_mustmeetsections pmme
+inner join sections e on pmme.sectiondcid = e.dcid
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join courses c on e.course_number = c.course_number
+inner join teachers t on e.teacher = t.id
+
+where
+pmme.u_ptc5_sessionsid = :sessionid
+and (:recordid = '-1' or pmme.id = :recordid)
+
+order by 3
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.mustmeet.psqueryfix" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="ccid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc_mustmeet.id">result.id</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+id
+
+from u_ptc_mustmeet
+
+where
+ccid = :ccid
+and u_ptc5_sessionsid = :sessionid
+]]>
+    </sql>
+  </query>
+</queries>

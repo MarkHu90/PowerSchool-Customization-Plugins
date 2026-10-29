@@ -1,0 +1,337 @@
+~[if#id.~(gpv.id)=]
+  ~[redirect:/admin/psugasia/attendancenotices/calendar.html]
+[/if#id]
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Process Attendance Notice</title>
+<!-- required scripts -->
+	~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+	<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+	<link href="/images/css/print.css" rel="stylesheet" media="print">
+  <style>
+    textarea.attendanceComment {width:300px; height:50px;}
+    tr.success {color: green;}
+    tr.error {color: red;}
+  </style>
+  <script src="/scripts/psugasia/attendancenotices/psugasia_attendancenotices.js"></script>
+  <script>
+    let requestTotal = 0;
+    let requestCompleted = 0;
+    let hasError = false;
+
+    jQuery(document).ready(function() {
+      loadingDialog();
+      jQuery.getJSON('calendar_process_attendancecodes.json', function(data) {
+        if (data.length > 1) {
+          data.pop();
+          var attedanceCodeOptionHTML = '<option value="-1">Do not write attendance record</option>';
+          jQuery.each(data, function(k,v) {
+            attedanceCodeOptionHTML += '<option value="'+v.id+'">'+v.att_code+'</option>';
+          });
+        }
+        jQuery("#attendanceCodeSetAll").html(attedanceCodeOptionHTML);
+      
+        jQuery.getJSON('calendar_process_daily.json?id=~(gpv.id)', function(data) {
+          if (data.length > 1) {
+            data.pop();
+            let rownum = 1;
+            jQuery.each(data, function(k,v) {
+              var rowHTML = '<tr rownum="'+rownum+'" studentid="'+v.studentid+'" changed="0">';
+              rowHTML += '<td><input type="hidden" id="'+rownum+'_dayid" value="'+v.calendardayid+'" apidate="'+v.apidate+'">'+v.date_value+'</td>';
+              rowHTML += '<td>'+v.day_name+'</td>';
+              rowHTML += '<td>'+v.bellschedule+'</td>';
+              rowHTML += '<td><select id="'+rownum+'_attendanceCode" class="attendanceCode" onchange="markChanged(this)">>'+attedanceCodeOptionHTML+'</select></td>';
+              rowHTML += '<td><textarea id="'+rownum+'_attendanceComment" class="attendanceComment" onchange="markChanged(this)">></textarea></td>';
+              rowHTML += '</tr>';
+              jQuery("#attendanceTable > tbody").append(rowHTML);
+              jQuery("#"+rownum+"_attendanceCode").val(v.attendance_codeid);
+              jQuery("#"+rownum+"_attendanceComment").val(v.att_comment);
+              rownum++;
+            });
+          }
+          closeLoading();
+        });
+      });
+    });
+
+    function markChanged(e) {
+      $j(e).closest('tr').attr('changed', "1");
+    }
+
+    function setAllAttendance() {
+      $j("#attendanceTable > tbody > tr").each(function (k,v) {
+        if ($j('select.attendanceCode', v).val() != $j("#attendanceCodeSetAll").val())
+          $j('select.attendanceCode', v).val($j("#attendanceCodeSetAll").val()).trigger('change');
+      });
+    }
+    
+    function setAllAttendanceComment() {
+      $j("#attendanceTable > tbody > tr").each(function (k,v) {
+        if ($j('textarea.attendanceComment', v).val() != $j("#attendanceCommentSetAll").val())
+          $j('textarea.attendanceComment', v).val($j("#attendanceCommentSetAll").val()).trigger('change');
+      });
+    }
+    
+    async function submitProcess() {
+      //loadingDialog();
+      //var hasError = false;
+      requestTotal = 0;
+      requestCompleted = 0;
+      hasError = false;
+      $j('#button_submit').html('Processing...').prop('disabled', true);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      $j('#div_progress').hide();
+      $j('#div_error').hide();
+      let accessToken = await getAT();
+      if (!accessToken)
+        return;
+      
+      if ($j('#writeAttendance').prop('checked')) {
+        jQuery("#attendanceTable > tbody > tr").each(function (k,v) {
+          var rownum = jQuery(v).attr("rownum");
+          var changed = jQuery(v).attr("changed");
+          if (parseInt(changed) === 1) {
+            var attendance_codeid = jQuery("#"+rownum+"_attendanceCode").val();
+            if (parseInt(attendance_codeid) != -1) {
+              requestTotal++;
+            }
+          }
+        });
+        processProgress();
+      }
+
+      if ($j('#writeAttendance').prop('checked')) {
+        for (let row of document.getElementById("attendanceTableTbody").rows) {
+          var rownum = jQuery(row).attr("rownum");
+          var changed = jQuery(row).attr("changed");
+          var attendance_codeid = jQuery("#"+rownum+"_attendanceCode").val();
+          var calendar_dayid = jQuery("#"+rownum+"_dayid").val();
+          var studentid = jQuery(row).attr("studentid");
+          var att_comment = jQuery("#"+rownum+"_attendanceComment").val();
+          var att_date = jQuery("#"+rownum+"_dayid").attr('apidate');
+          
+          if (parseInt(changed) === 1) {
+            var data = {
+              "name": "ATTENDANCE",
+              "record": [
+                {
+                  "name": "ATTENDANCE",
+                  "tables": {
+                    "attendance": {
+                      "attendance_codeid": attendance_codeid,
+                      "calendar_dayid": calendar_dayid,
+                      "schoolid": "~(curschoolid)",
+                      "yearid": "~(curyearid)",
+                      "studentid": studentid,
+                      "att_comment": att_comment,
+                      "att_date": att_date,
+                      "att_mode_code": "ATT_ModeDaily"
+                    }
+                  }
+                }
+              ]
+            };
+            
+            jQuery.ajax({
+              type: "POST",
+              url: '/ws/attendance/daily_time',
+              data: JSON.stringify(data),
+              contentType: "application/json;charset=UTF-8",
+              dataType: 'json',
+              headers: {"Authorization": "Bearer "+accessToken, "Accept": "application/json"},
+              complete: function(d) {
+                if (d?.status == '200') {
+                  jQuery(row).removeClass("error").addClass("success");
+                  $j(row).attr('changed', "0");
+                }
+                else {
+                  jQuery(row).removeClass("success").addClass("error");
+                  hasError = true;
+                }
+                requestCompleted++;
+                processProgress();
+              },
+              error: function(d) {
+                jQuery(row).removeClass("success").addClass("error");
+                hasError = true;
+                requestCompleted++;
+                processProgress();
+              }
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+    }
+
+    async function getAT() {
+      try {
+        let a1 = await fetch('https://www.psugasia.com/webapps/api/attendancenotices/v2/process.php', {
+          method: "GET"
+        });
+        let a2 = await a1.text();
+
+        let at = await fetch('/oauth/access_token/', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic "+a2
+          },
+          body: 'grant_type=client_credentials'
+        });
+
+        if (at.status !== 200) {
+          alert("Unable to retrieve API access token.");
+          return '';
+        }
+        let atJSON = await at.json();
+        return atJSON.access_token;
+      } catch (e) {
+        alert("Unable to retrieve API access token.");
+        return '';
+      }
+    }
+
+    async function processProgress() {
+      $j('#div_progress span').html('('+requestCompleted+'/'+requestTotal+')');
+      $j('#div_progress').show();
+      if (requestCompleted >= requestTotal) {
+        $j('#div_progress span').html('completed');
+        if (!hasError && jQuery("#markProcessed").prop("checked")) {
+          jQuery("#processed").val("1");
+          jQuery("#processed_by").val("~[x:username]");
+          jQuery("#processed_when").val("~[tlist_sql;select to_char(sysdate,'YYYY-MM-DD HH24'||chr(58)||'MI'||chr(58)||'SS') d from dual;]~(d)[/tlist_sql]");
+          jQuery('#processForm').submit();
+        }
+
+        $j('#button_submit').html('Submit').prop('disabled', false);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (hasError)
+        $j('#div_error').show();
+    }
+  </script>
+</head> 
+<body> 
+	~[wc:admin_header_css] 
+	<!-- breadcrumb start -->
+	<a href="/admin/home.html" target="_top">~[text:psx.html.admin.home.start_page]</a> 
+  &gt; <a href="/admin/psugasia/attendancenotices/home.html" target="_top">Attendance Notices</a> 
+  &gt; 
+  ~[if#source.~(gpv.source)=listing]
+  <a href="/admin/psugasia/attendancenotices/listing.html" target="_top">Listing</a> 
+  [else#source]
+  <a href="/admin/psugasia/attendancenotices/calendar.html" target="_top">Calendar</a> 
+  [/if#source]
+  &gt; Process Attendance Notice
+    <!-- breadcrumb end -->
+
+<!-- start of main menu and content --> 
+	~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+	<h1>Process Attendance Notice</h1> 
+<!-- start of content area --> 
+
+  <form action="~[if#source.~(gpv.source)=listing]listing.html[else#source]calendar.html[/if#source]" method="POST" id="processForm">
+    ~[DirectTable.Select:u_attendancenotices_requests;ID:~(gpv.id)]
+    <input type="hidden" name="ac" value="prim">
+    <input type="hidden" name="[u_attendancenotices_requests]processed" id="processed" value="">
+    <input type="hidden" name="[u_attendancenotices_requests]processed_by" id="processed_by" value="">
+    <input type="hidden" name="[u_attendancenotices_requests]processed_when" id="processed_when" value="">
+  </form>
+
+  ~[if#processed.~([u_attendancenotices_requests]processed)=1]
+  <div class="feedback-confirm">This record has already been processed by ~([u_attendancenotices_requests]processed_by) on ~([u_attendancenotices_requests]processed_when)</div>
+  [/if#processed]
+
+  <ul class="tabs shown_tabs">
+    <li> 
+      <a href="calendar_process_meeting.html?id=~(gpv.id)&source=~(gpv.source)">Meeting</a> 
+    </li>
+    <li class="selected">
+      <a href="calendar_process_daily.html?id=~(gpv.id)&source=~(gpv.source)">Daily</a>
+    </li>
+  </ul>
+
+  <div class="box-round">
+    ~[tlist_sql;
+    select
+    s.dcid,
+    s.lastfirst,
+    s.guardianemail,
+    case 
+      when nvl(uanr.allday,0) = 1 then to_char(uanr.date_start,'~[dateformat]')||' - '||to_char(uanr.date_end,'~[dateformat]')
+      else to_char(uanr.date_start,'~[dateformat]')||' '||uanr.time_start||' - '||to_char(uanr.date_end,'~[dateformat]')||' '||uanr.time_end
+    end daterange,
+    uanr.remarks
+    
+    from u_attendancenotices_requests uanr
+    inner join students s on uanr.studentsdcid = s.dcid
+    
+    where
+    uanr.id = '~(gpv.id)'
+    ;]
+    <table class="linkDescList">
+      <tr>
+        <td class="bold" width="120">Student:</td>
+        <td><a href="/admin/students/home.html?frn=001~(dcid)" target="_blank">~(lastfirst)</a></td>
+      </tr>
+      <tr>
+        <td class="bold">Parent Contact:</td>
+        <td><a href="mailto:~(guardianemail)">Guardian Email</a> / <a href="/admin/students/home.html?frn=001~(dcid)&lsp=contacts.html" target="_blank">Contacts Page</a></td>
+      </tr>
+      <tr>
+        <td class="bold">Date Range:</td>
+        <td>~(daterange)</td>
+      </tr>
+      <tr>
+        <td class="bold">Remarks:</td>
+        <td>~(remarks)</td>
+      </tr>
+    </table>
+    [/tlist_sql]
+    <p class="feedback-info">Any existing attendance records will be pre-filled below</p>
+    <table id="attendanceTable" class="linkDescList">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Cycle Day</th>
+          <th>Bell Schedule</th>
+          <th>Attendance Code</th>
+          <th>Attendance Comment</th>
+        </tr>
+      </thead>
+      <tbody id="attendanceTableTbody"></tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td><select id="attendanceCodeSetAll"></select> <button onclick="setAllAttendance()">Set All</button></td>
+          <td><textarea id="attendanceCommentSetAll" class="attendanceComment"></textarea> <button onclick="setAllAttendanceComment()">Set All</button></td>
+        </tr>
+      </tfoot>
+    </table>
+    
+    <div class="button-row">
+      <input type="checkbox" id="writeAttendance" value="1" checked="checked"> Write Attendance Records
+      <input type="checkbox" id="markProcessed" value="1" checked="checked" style="margin-left: 20px;"> Mark Attendance Notice as Processed 
+      <button type="button" onclick="submitProcess()" id="button_submit" style="margin-left: 20px;">Submit</button>
+    </div>
+
+    <div class="feedback-info" id="div_progress" style="display: none;">
+      Processing...<span></span>
+    </div>
+
+    <div class="feedback-error" id="div_error" style="display: none;">
+      There were problems while processing some records (highlighted in red), this is usually caused by PowerSchool's buggy API.  Press the Submit button again to try submitting those records again (it make take multiple tries if you are submitted a large amount of changes).
+    </div>
+    
+  </div>
+<!-- end of content area --> 
+	~[wc:admin_footer_css]
+</body> 
+</html>

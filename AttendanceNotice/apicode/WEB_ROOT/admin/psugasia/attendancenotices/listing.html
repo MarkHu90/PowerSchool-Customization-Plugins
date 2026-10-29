@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Listing</title>
+<!-- required scripts -->
+	~[wc:commonscripts]
+<!-- Required style sheets: screen.css, and print.css -->
+	<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+	<link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/attendancenotices/psugasia_attendancenotices_admin.css" rel="stylesheet" />
+  <script src="/scripts/psugasia/attendancenotices/psugasia_attendancenotices.js"></script>
+  <script src="/scripts/psugasia/attendancenotices/isdate.js"></script>
+  <style>
+    .required {color:red;}
+    .invalid {
+      outline: none;
+      box-shadow: 0 0 5px red;
+    }
+  </style>
+</head>
+<body>
+	~[wc:admin_header_css]
+	<!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">~[text:psx.html.admin.home.start_page]</a> &gt; <a href="/admin/psugasia/attendancenotices/home.html" target="_top">Attendance Notices</a> &gt; Listing
+	<!-- breadcrumb end -->
+
+<!-- start of main menu and content -->
+	~[wc:admin_navigation_css]
+<!-- Start of Page -->
+	<h1>Listing</h1>
+<!-- start of content area -->
+
+~[if#schoolid.~(curschoolid)=0]
+  <div class="feedback-alert">Please select a school</div>
+[else#schoolid]
+
+  ~[tlist_sql;
+  select
+  enabled,
+  attendancemode
+  from u_attendancenotices_settings
+  where
+  schoolid = '~(curschoolid)'
+  and nvl(enabled,0) = 1
+  ;nonemessage=<p class="feedback-info">This feature is not enabled for this school</p>;]
+  <!--~(enabled)-->
+
+  <div class="box-round" id="myController" data-ng-controller="myController" data-ng-cloak>
+
+  <!-- this container holds the PS Tiles Widget -->
+  <div class="kpi-container">
+      <div class="kpi-header">
+          <h3>Status</h3>
+      </div>
+      <div class="kpi-content">
+          <div class="kpi-container">
+               <div class="kpi-content tiles">
+                   <div data-pss-vidget-wrapper>
+                       <div id="tileCarousel"
+                           data-pss-vidget
+                           data-pss-carousel
+                           data-vidget-source="vidget:tiles:raw"
+                           data-vidget-model="model.tiles">
+                           <div id="tiles"
+                                data-pss-vidget
+                                data-pss-tiles-vidget
+                                data-pss-carousel-tiles-vidget
+                                data-my-tiles>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+          </div>
+      </div>
+  </div>
+  <!-- end of PS Tiles Widget -->
+  
+  <div id="myGrid" data-pss-grid-widget data-data="myData" data-filtered-data="myDataFiltered" data-client-side-pagination="true">
+    <table class="grid">
+    <thead>
+      <tr>
+        <th data-pss-sort-fields="lastfirst">Student</th>
+        <th data-pss-sort-fields="student_number">Student Number</th>
+        <th data-pss-sort-fields="grade_level">Grade Level</th>
+        <th data-pss-sort-fields="date_start">Date From</th>
+        <th data-pss-sort-fields="date_end">To</th>
+        <th data-pss-sort-fields="time_start">Time From</th>
+        <th data-pss-sort-fields="time_end">To</th>
+        <th data-pss-sort-fields="allday">All Day</th>
+        <th data-pss-sort-fields="personal_leave">Personal Leave</th>
+        <th data-pss-sort-fields="principal_approved">Principal Approved</th>
+        <th data-pss-sort-fields="reason">Reason</th>
+        <th data-pss-sort-fields="remarks">Remarks</th>
+        <th data-pss-sort-fields="rejected">Rejected</th>
+        <th data-pss-sort-fields="whocreated">Requested By</th>
+        <th data-pss-sort-fields="whencreated">When</th>
+        <th data-pss-sort-fields="processed">Processed</th>
+        <th data-pss-sort-fields="processed_by">By</th>
+        <th data-pss-sort-fields="processed_when">When</th>
+        <th data-pss-sort-fields="lastupdated">Last Updated</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-ng-repeat="item in myDataFiltered" >
+        <td>
+          <a href="/admin/students/home.html?frn=001{{item.dcid}}" target="_blank">{{item.lastfirst}}</a>
+        </td>
+        <td>{{item.student_number}}</td>
+        <td>{{item.grade_level}}</td>
+        <td>{{item.date_start}}</td>
+        <td>{{item.date_end}}</td>
+        <td>{{item.time_start}}</td>
+        <td>{{item.time_end}}</td>
+        <td>{{item.allday}}</td>
+        <td>{{item.personal_leave}}</td>
+        <td>{{item.principal_approved}}</td>
+        <td>{{item.reason}}</td>
+        <td>{{item.remarks}}</td>
+        <td>{{item.rejected}}</td>
+        <td>{{item.whocreated}}</td>
+        <td>{{item.whencreated}}</td>
+        <td>{{item.processed}}</td>
+        <td>{{item.processed_by}}</td>
+        <td>{{item.processed_when}}</td>
+        <td>{{item.lastupdated}}</td>
+        <td>
+          <span style="white-space:nowrap;">
+            <a href="calendar_edit.html?id={{item.id}}&source=listing" class="dialogC dockedDialog button" title="Attendance Notice Details">Edit</a>
+            <a href="calendar_process_~(attendancemode).html?id={{item.id}}&source=listing" class="button" target="_blank" ng-show="item.rejected === 'No'">Process</a>
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  
+  <p><a href="listing.csv" class="button" target="_blank">Download CSV</a></p>
+  [/tlist_sql]
+</div>
+[/if#schoolid]
+
+<!-- end of content area -->
+	~[wc:admin_footer_css]
+  ~[if#schoolid.~(curschoolid)#0]
+  <script>
+    require(['angular', 'psugasia/admin/attendancenotices/listing'], function (angular) {
+       angular.bootstrap($j('#myController')[0], ['myModule']);
+    });
+  </script>
+  [/if#schoolid]
+</body>
+</html>

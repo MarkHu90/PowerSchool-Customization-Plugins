@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Attendance Notices</title>
+<!-- required scripts -->
+	~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+	<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+	<link href="/images/css/print.css" rel="stylesheet" media="print">
+</head> 
+<body> 
+	~[wc:admin_header_frame_css]
+	<!-- breadcrumb start -->
+		<a href="/admin/home.html" target="_top">Start Page</a> &gt; <a href="/admin/students/home.html?selectstudent=nosearch" target="_top">Student Selection</a> &gt; Attendance Notices
+	<!-- breadcrumb end -->
+~[wc:admin_navigation_frame_css]
+<!-- start of main menu and content -->
+~[wc:title_student_begin_css]Attendance Notices~[wc:title_student_end_css]
+<form action="/~[self.page]?frn=~(studentfrn)&changesSaved=true" method="POST">
+<!-- start of content area -->
+~[if#schoolid.~(curschoolid)=0]
+  <div class="feedback-alert">Please select a school</div>
+[else#schoolid]
+
+  <p id="calendar_p" style="display:none;">
+    <iframe src="calendar_calendar.html?frn=~(gpv.frn)" style="position: absolute; width:98%; height: 100vh; border: none; background-color: white;"></iframe>
+  </p>
+
+  ~[tlist_sql;
+  select
+  enabled
+  from u_attendancenotices_settings
+  where
+  schoolid = '~(curschoolid)'
+  and nvl(enabled,0) = 1
+  ;nonemessage=<p class="feedback-info">This feature is not enabled for this school</p>;]
+  <!--~(enabled)-->
+  <script>
+    jQuery('#calendar_p').show();
+  </script>
+  [/tlist_sql]
+  
+[/if#schoolid]
+</form>
+<!-- end of content area -->
+	~[wc:admin_footer_frame_css]
+</body> 
+</html>

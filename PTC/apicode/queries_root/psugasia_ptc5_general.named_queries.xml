@@ -1,0 +1,245 @@
+<queries>
+  <query name="com.psugasia.ptc5.general.grade_levels" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.grade_level">result.grade_level</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+grade_level
+
+from students
+
+where
+(:schoolid = '0' or schoolid = :schoolid)
+
+order by grade_level
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.years" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="terms.yearid">result.yearid</column>
+      <column column="terms.abbreviation">result.abbreviation</column>
+      <column column="terms.name">result.name</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+yearid,
+abbreviation,
+name
+
+from terms
+
+where
+schoolid = :schoolid
+and isyearrec = 1
+
+order by yearid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.terms" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+      <arg name="yearid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="terms.dcid">result.dcid</column>
+      <column column="terms.id">result.id</column>
+      <column column="terms.abbreviation">result.abbreviation</column>
+      <column column="terms.name">result.name</column>
+      <column column="terms.yearid">result.yearid</column>
+      <column column="terms.portion">result.portion</column>
+      <column column="terms.firstday">result.firstday</column>
+      <column column="terms.lastday">result.lastday</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+dcid,
+id,
+abbreviation,
+name,
+yearid,
+portion,
+firstday,
+lastday
+
+from terms
+
+where
+schoolid = :schoolid
+and yearid = :yearid
+
+order by yearid, portion, firstday, lastday
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.courses" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="courses.dcid">result.dcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="courses.course_number">result.course_number</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+c.dcid,
+c.course_name,
+c.course_number
+
+from courses c
+left outer join school_course hc on c.id = hc.courseid
+
+where
+nvl(hc.status,0) = 1
+and (:schoolid = '0' or hc.schoolid = :schoolid)
+
+order by c.course_name, c.course_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.sections" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+      <arg name="yearid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="sections.dcid">result.dcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+e.dcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number
+
+from sections e
+inner join courses c on e.course_number = c.course_number
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+
+where
+r.yearid = :yearid
+and (:schoolid = '0' or e.schoolid = :schoolid)
+
+order by 3
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.students" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.dcid">result.dcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="students.student_number">result.student_number</column>
+      <column column="students.id">result.id</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+s.dcid,
+s.lastfirst,
+s.student_number,
+s.id
+
+from students s
+
+where
+s.enroll_status in (0,-1)
+and (:schoolid = '0' or s.schoolid = :schoolid)
+
+order by s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.teachers" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="teachers.dcid">result.dcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="teachers.teachernumber">result.teachernumber</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+dcid,
+lastfirst,
+teachernumber
+
+from teachers
+
+where
+staffstatus in (1,4)
+and status = 1
+and (:schoolid = '0' or schoolid = :schoolid)
+
+order by lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.teachers.mysettings" flattened="true">
+    <args>
+      <arg name="schoolstaffdcid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_schoolstaff_ptc5.schoolstaffdcid">result.schoolstaffdcid</column>
+      <column column="u_schoolstaff_ptc5.excluded">result.excluded</column>
+      <column column="u_schoolstaff_ptc5.room">result.room</column>
+      <column column="u_schoolstaff_ptc5.onlineurl">result.onlineurl</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+schoolstaffdcid,
+excluded,
+room,
+onlineurl
+
+from u_schoolstaff_ptc5
+
+where
+schoolstaffdcid = :schoolstaffdcid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.general.contactswithdataaccess" flattened="true">
+    <columns>
+      <column column="person.id">result.id</column>
+      <column column="person.firstname">result.firstname</column>
+      <column column="person.middlename">result.middlename</column>
+      <column column="person.lastname">result.lastname</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+p.id,
+p.firstname,
+p.middlename,
+p.lastname
+
+from guardianstudent gs
+inner join guardianpersonassoc gpa on gs.guardianid = gpa.guardianid
+inner join person p on gpa.personid = p.id
+
+order by p.lastname, p.firstname, p.middlename
+]]>
+    </sql>
+  </query>
+</queries>

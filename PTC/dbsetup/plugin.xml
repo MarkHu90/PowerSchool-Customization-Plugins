@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <plugin xmlns="http://plugin.powerschool.pearson.com" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  description="PSUG Asia PTC Database Extensions Setup" 
+  name="PSUG Asia PTC V5 Setup" version="5.0.0" 
+  xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+  <publisher name="PSUG Asia">
+    <contact email="supportps@psugasia.com"/>
+  </publisher>
+</plugin>

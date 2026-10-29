@@ -1,0 +1,88 @@
+[
+~[tlist_sql;
+with teacherschedule as (
+  select
+  to_char(cd.date_value,'YYYY-MM-DD')||'T'||to_char(to_date(bsi.start_time,'SSSSS'),'HH24'||chr(58)||'MI') as startdt,
+  to_char(cd.date_value,'YYYY-MM-DD')||'T'||to_char(to_date(bsi.end_time,'SSSSS'),'HH24'||chr(58)||'MI') as enddt
+
+  from teachers t
+  inner join u_ptc5_cc pc on t.dcid = pc.schoolstaffdcid
+  inner join cc d on pc.ccid = d.id
+  inner join sections e on d.sectionid = e.id
+  inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+  inner join section_meeting em on e.id = em.sectionid
+  inner join cycle_day yd on em.cycle_day_letter = yd.letter and em.schoolid = yd.schoolid and em.year_id = yd.year_id
+  inner join calendar_day cd on em.schoolid = cd.schoolid and cd.date_value between r.firstday and r.lastday and yd.id = cd.cycle_day_id
+  inner join period p on em.period_number = p.period_number and em.schoolid = p.schoolid and em.year_id = p.year_id
+  inner join bell_schedule_items bsi on cd.bell_schedule_id = bsi.bell_schedule_id and p.id = bsi.period_id
+
+
+  where 
+  t.dcid = '~(gpv.i)'
+  and pc.u_ptc5_sessionsid = '~(gpv.f)'
+  and r.yearid = '~(gpv.b)'
+
+  union
+
+  select
+  to_char(cd.date_value,'YYYY-MM-DD')||'T'||to_char(to_date(bsi.start_time,'SSSSS'),'HH24'||chr(58)||'MI'),
+  to_char(cd.date_value,'YYYY-MM-DD')||'T'||to_char(to_date(bsi.end_time,'SSSSS'),'HH24'||chr(58)||'MI')
+
+  from teachers t
+  inner join sections e on t.id = e.teacher
+  inner join cc d on d.sectionid = e.id
+  inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+  inner join section_meeting em on e.id = em.sectionid
+  inner join cycle_day yd on em.cycle_day_letter = yd.letter and em.schoolid = yd.schoolid and em.year_id = yd.year_id
+  inner join calendar_day cd on em.schoolid = cd.schoolid and cd.date_value between r.firstday and r.lastday and yd.id = cd.cycle_day_id
+  inner join period p on em.period_number = p.period_number and em.schoolid = p.schoolid and em.year_id = p.year_id
+  inner join bell_schedule_items bsi on cd.bell_schedule_id = bsi.bell_schedule_id and p.id = bsi.period_id
+
+
+  where 
+  t.dcid = '~(gpv.i)'
+  and r.yearid = '~(gpv.b)'
+)
+
+select
+pt.id
+
+from u_ptc5_timeslots pt
+
+where
+pt.id in (~(gpv.m))
+and (
+  select
+  count(1)
+  from teacherschedule ts
+  where
+  to_date(pt.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') between to_date(ts.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(ts.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+) = 0
+and (
+  select
+  count(1)
+  from teacherschedule ts
+  where
+  to_date(pt.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') between to_date(ts.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(ts.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+) = 0
+and (
+  select
+  count(1)
+  from teacherschedule ts
+  where
+  to_date(ts.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') between to_date(pt.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(pt.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+) = 0
+and (
+  select
+  count(1)
+  from teacherschedule ts
+  where
+  to_date(ts.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') between to_date(pt.startdt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(pt.enddt,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+) = 0
+;]
+  {
+    "id":"~(id;json)"
+  },
+[/tlist_sql]
+  {}
+]

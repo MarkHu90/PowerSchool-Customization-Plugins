@@ -1,0 +1,28 @@
+<queries>
+  <query name="com.psugasia.ptc5.testingcontacts.list" flattened="true">
+    <columns>
+      <column column="u_ptc5_testingcontacts.id">result.id</column>
+      <column column="u_ptc5_testingcontacts.personid">result.personid</column>
+      <column column="u_ptc5_testingcontacts.remarks">result.remarks</column>
+      <column column="person.firstname">result.firstname</column>
+      <column column="person.middlename">result.middlename</column>
+      <column column="person.lastname">result.lastname</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+tc.id,
+tc.personid,
+tc.remarks,
+p.firstname,
+p.middlename,
+p.lastname
+
+from u_ptc5_testingcontacts tc
+inner join person p on tc.personid = p.id
+
+order by p.firstname, p.middlename, p.lastname
+]]>
+    </sql>
+  </query>
+</queries>

@@ -1,0 +1,73 @@
+[
+~[tlist_sql;
+select
+t.title,
+t.starttime,
+t.endtime,
+t.allday,
+t.url,
+t.classname
+
+from 
+(
+    select
+    case when nvl(uans.calendar_cycledays,0) = 1 and yd.day_name is not null then yd.day_name||chr(10) end||
+    case when nvl(uans.calendar_notes,0) = 1 and cd.note is not null then cd.note end as title,
+    to_char(cd.date_value,'YYYY-MM-DD') as starttime,
+    to_char(cd.date_value,'YYYY-MM-DD') as endtime,
+    'true' as allday,
+    '' as url,
+    '' as classname
+    
+    from calendar_day cd
+    inner join terms y on cd.date_value between y.firstday and y.lastday and cd.schoolid = y.schoolid and y.isyearrec = 1
+    left outer join cycle_day yd on cd.cycle_day_id = yd.id
+    left outer join u_attendancenotices_settings uans on cd.schoolid = uans.schoolid
+    
+    where
+    cd.schoolid = '~(curschoolid)'
+    and y.yearid = '~(curyearid)'
+    and (
+      nvl(cd.insession,0) = 1
+      or 
+      cd.note is not null
+    )
+    
+    union
+    
+    select
+    s.lastfirst as title,
+    case 
+      when nvl(uanr.allday,0) = 0 then
+        to_char(uanr.date_start,'YYYY-MM-DD')||'T'||uanr.time_start||chr(58)||'00' 
+      else
+        to_char(uanr.date_start,'YYYY-MM-DD')
+    end as starttime,
+    case 
+      when nvl(uanr.allday,0) = 0 then
+        to_char(uanr.date_end,'YYYY-MM-DD')||'T'||uanr.time_end||chr(58)||'00' 
+      else
+        to_char(uanr.date_end+1,'YYYY-MM-DD')
+    end as endtime,
+    decode(nvl(uanr.allday,0),1,'true','false') as allday,
+    'calendar_edit.html?id='||to_char(uanr.id) as url,
+    case 
+      when nvl(uanr.processed,0) = 1 then 'attendanceNoticeProcessed'
+      else 'attendanceNotice' 
+    end as classname
+    
+    from u_attendancenotices_requests uanr
+    inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+    inner join students s on uanr.studentsdcid = s.dcid 
+    
+    where
+    
+    uanr.schoolid = '~(curschoolid)'
+    and y.yearid = '~(curyearid)'
+) t
+where
+t.title is not null
+;]
+  {"title":"~(title;json)","start":"~(starttime;json)","end":"~(endtime;json)","allDay":"~(allday;json)","url":"~(url;json)","className":"~(classname;json)"},
+[/tlist_sql]
+{}]

@@ -1,0 +1,157 @@
+<queries>
+  <query name="com.psugasia.ptc5.excluded.courses" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_courses_ptc5.coursesdcid">result.coursesdcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="courses.course_number">result.course_number</column>
+      <column column="courses.credittype">result.credittype</column>
+      <column column="courses.sched_department">result.sched_department</column>
+      <column column="courses.sched_coursesubjectareacode">result.sched_coursesubjectareacode</column>
+      <column column="courses.credit_hours">result.credit_hours</column>
+      <column column="u_courses_ptc5.excluded">result.excluded</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+cp.coursesdcid,
+c.course_name,
+c.course_number,
+c.credittype,
+c.sched_department,
+c.sched_coursesubjectareacode,
+c.credit_hours,
+cp.excluded
+
+from u_courses_ptc5 cp
+inner join courses c on cp.coursesdcid = c.dcid
+inner join school_course hc on c.id = hc.courseid
+
+where
+nvl(hc.status,0) = 1
+and nvl(cp.excluded,0) = 1
+and (:schoolid = '0' or hc.schoolid = :schoolid)
+
+order by c.course_name, c.course_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.excluded.sections" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+      <arg name="yearid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_sections_ptc5.sectionsdcid">result.sectionsdcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="sections.room">result.room</column>
+      <column column="sections.external_expression">result.external_expression</column>
+      <column column="u_sections_ptc5.excluded">result.excluded</column>
+      <column column="courses.dcid">result.coursedcid</column>
+      <column column="courses.course_number">result.course_number</column>
+      <column column="terms.name">result.term</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+ep.sectionsdcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst,
+e.room,
+e.external_expression,
+ep.excluded,
+c.dcid as coursedcid,
+c.course_number,
+r.name as term
+
+from u_sections_ptc5 ep
+inner join sections e on ep.sectionsdcid = e.dcid
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join courses c on e.course_number = c.course_number
+inner join teachers t on e.teacher = t.id
+
+where
+nvl(ep.excluded,0) = 1
+and r.yearid = :yearid
+and (:schoolid = '0' or e.schoolid = :schoolid)
+
+order by 3
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.excluded.students" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_students_ptc5.studentsdcid">result.studentsdcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="students.student_number">result.student_number</column>
+      <column column="students.gender">result.gender</column>
+      <column column="students.home_room">result.home_room</column>
+      <column column="u_students_ptc5.excluded">result.excluded</column>
+      <column column="students.grade_level">result.grade_level</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+sp.studentsdcid,
+s.lastfirst,
+s.student_number,
+s.gender,
+s.home_room,
+sp.excluded,
+s.grade_level
+
+from u_students_ptc5 sp
+inner join students s on sp.studentsdcid = s.dcid
+
+where
+nvl(sp.excluded,0) = 1
+and (:schoolid = '0' or s.schoolid = :schoolid)
+
+order by s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.excluded.schoolstaff" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_schoolstaff_ptc5.schoolstaffdcid">result.schoolstaffdcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="teachers.teachernumber">result.teachernumber</column>
+      <column column="teachers.title">result.title</column>
+      <column column="teachers.email_addr">result.email_addr</column>
+      <column column="teachers.homeroom">result.homeroom</column>
+      <column column="u_schoolstaff_ptc5.excluded">result.excluded</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+up.schoolstaffdcid,
+t.lastfirst,
+t.teachernumber,
+t.title,
+t.email_addr,
+t.homeroom,
+up.excluded
+
+from u_schoolstaff_ptc5 up
+inner join teachers t on up.schoolstaffdcid = t.dcid
+
+where
+nvl(up.excluded,0) = 1
+and (:schoolid = '0' or t.schoolid = :schoolid)
+
+order by t.lastfirst
+]]>
+    </sql>
+  </query>
+</queries>

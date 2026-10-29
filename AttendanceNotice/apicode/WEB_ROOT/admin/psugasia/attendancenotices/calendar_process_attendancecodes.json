@@ -1,0 +1,17 @@
+[
+~[tlist_sql;
+select
+to_char(description)||case when att_code is not null then ' ('||att_code||')' end as att_code,
+id
+
+from attendance_code
+
+where
+schoolid = '~(curschoolid)'
+and yearid = '~(curyearid)'
+
+order by sortorder
+;]
+  {"att_code":"~(att_code;json)","id":"~(id;json)"},
+[/tlist_sql]
+{}]

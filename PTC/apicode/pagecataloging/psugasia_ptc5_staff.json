@@ -1,0 +1,26 @@
+{
+  "pages": [
+		{
+			"htmlID": "PSUGAsiaPTC5StaffSchedule",
+			"title": "PTC",
+			"version": "5.0.0.0",
+			"contextType": "staff",
+			"sortOrder": 99999,
+			"pageURL": null,
+			"districtLevelContext": 0,
+			"parentHTMLID": "navStaffScheduleSection",
+			"children": [
+				{
+					"htmlID": "PSUGAsiaPTC5StaffSchedule_TeacherPTCSettings",
+					"title": "Teacher PTC Settings",
+					"version": "5.0.0.0",
+					"contextType": "staff",
+					"sortOrder": 10,
+					"pageURL": "/admin/faculty/ptc5.html?frn=~(teacherfrn)",
+					"parentHTMLID": "PSUGAsiaPTC5StaffSchedule",
+					"districtLevelContext": 0
+				}
+			]
+		}
+  ]
+}

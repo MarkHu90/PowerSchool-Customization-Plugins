@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Attendance Notices</title>
+<!-- required scripts -->
+	~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+	<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+	<link href="/images/css/print.css" rel="stylesheet" media="print">
+</head> 
+<body> 
+	~[wc:admin_header_css] 
+	<!-- breadcrumb start -->
+	<a href="/admin/home.html" target="_top">~[text:psx.html.admin.home.start_page]</a> &gt; Attendance Notices
+    <!-- breadcrumb end -->
+
+<!-- start of main menu and content --> 
+	~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+	<h1>Attendance Notices</h1> 
+<!-- start of content area --> 
+
+  <div class="box-round">
+  
+    <table border="0" cellspacing="0" cellpadding="4">
+      <tr class="headerRow">
+        <td class="bold">Function</td>
+        <td class="bold">Description</td>
+      </tr>
+      <tr class="oddRow">
+        <td><a href="settings.html">Settings</a></td>
+        <td>Settings for Attendance Notices for the current school.</td>
+      </tr>
+      <tr class="evenRow">
+        <td><a href="calendar.html">Calendar</a></td>
+        <td>View Attendance Notices Calendar.</td>
+      </tr>
+      <tr class="oddRow">
+        <td><a href="listing.html">Listing</a></td>
+        <td>View Attendance Notices in a list.</td>
+      </tr>
+    </table>
+  </div>
+<!-- end of content area --> 
+	~[wc:admin_footer_css]
+</body> 
+</html>

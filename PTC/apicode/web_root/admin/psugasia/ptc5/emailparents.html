@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Email Parents</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+    let sendCompleted = false;
+
+    async function updateSession() {
+      if ($j('#sr_session').val()) {
+        $j('#button_search').html('Getting data...').prop('disabled', true);
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        $j('#button_search').html('Search').prop('disabled', false);
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function checkEmailSettings() {
+      let emailSettings = await getPQ(
+        'com.psugasia.ptc5.email.settings', 
+        0, 
+        null,
+        [
+          'smtp_server',
+          'smtp_username',
+          'smtp_password'
+        ],
+        true
+      );
+
+      if (emailSettings.smtp_server.trim() == '' || emailSettings.smtp_username.trim() == '' || emailSettings.smtp_password.trim() == '') {
+        $j('#div_existingsession').hide();
+        $j('#div_noemailsettings').show();
+      }
+    }
+
+    async function emailPreview() {
+      $j('#button_preview').html('Getting data...').prop('disabled', true);
+      let count = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/emailparents.php', 
+        {
+          a: licenceKey,
+          b: sessionID,
+          h: 'count'
+        },
+        [
+          'count'
+        ],
+        true
+      );
+
+      $j('#span_emailcount').html(count.count);
+      $j('#div_emailpreview').show();
+      $j('#button_preview').html('Preview').prop('disabled', false);
+    }
+
+    function emailSend() {
+      if (confirm("Are you sure you want to start sending? This process cannot be stopped once started.")) {
+        $j('#button_preview').prop('disabled', true);
+        $j('#button_send').html('Sending emails...').prop('disabled', true);
+        let php = fetch('https://www.psugasia.com/webapps/api/ptc/v5/emailparents.php', {
+          cache: "no-cache",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            a: licenceKey,
+            b: sessionID,
+            h: 'sendemails'
+          })
+        });
+
+        setTimeout(() => {
+          getSendProgress();
+        }, 1000);
+      }
+    }
+
+    async function getSendProgress() {
+      let php = await fetch('https://www.psugasia.com/webapps/api/ptc/v5/emailparents_progress.php', {
+        cache: "no-cache",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          a: licenceKey
+        })
+      });
+
+      let progress = await php.json();
+
+      if (Array.isArray(progress.emailqueue)) {
+        progress.emailqueue.forEach(function(p) {
+          let trHTML = '';
+          if (p?.completed == 'done') {
+            trHTML  = '<tr>'
+                      + '<td colspan="2"><strong>All emails sent</strong></td>'
+                    + '</tr>';
+            sendCompleted = true;
+          }
+          else {
+            if ($j('#table_emailprogress tbody tr[data-studentdcid="'+p.studentdcid+'"]').length === 0) {
+              let sendStatus = '';
+              if (p.status == 'success')
+                sendStatus = 'Sent Successfully';
+              else
+                sendStatus = 'Failed: '+v.reason;
+
+              trHTML  = '<tr data-studentdcid="'+p.studentdcid+'" '+(p.status != 'success' ? ' class="sendfailed"' : "")+'>'
+                        + '<td><a href="/admin/students/home.html?frn=001'+p.studentdcid+'&gs=true" target="_blank">'+p.lastfirst+'</a></td>'
+                        + '<td>'+sendStatus+'</td>'
+                      + '</tr>';
+              
+            }
+          }
+
+          if (trHTML != '')
+            $j('#table_emailprogress tbody').append(trHTML);
+        });
+        $j('#div_emailprogress').show();
+      }
+
+      if (!sendCompleted) {
+        setTimeout(() => {
+          getSendProgress();
+        }, 1000);
+      }
+      else {
+        $j('#button_send').html('Sending completed').prop('disabled', true);
+      }
+        
+    }
+
+    $j(function() {
+      updateSession();
+      checkEmailSettings();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    .sendfailed {
+      color: red;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Email Parents
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Email Parents</h1> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_noemailsettings" class="feedback-alert" style="display: none;">
+    Cannot find required email settings.  Please fill in the <a href="/admin/psugasia/ptc5/settings.html">email settings</a> first.
+  </div>
+
+  <div id="div_existingsession">
+    <div class="feedback-info">
+      <p>
+        This process will for the selected Session:
+        <ul>
+          <li>Generate a booking schedule email for each student (same as the parent portal's "My Schedule" page)</li>
+          <li>Send the email to all of the student's contacts who:
+            <ul>
+              <li>Are active</li>
+              <li>Have relationship type code containg text "father" or "mother"</li>
+              <li>Have at least 1 email address</li>
+            </ul>
+          </li>
+          <li>Students who do not have any contacts matching the above will not get emails</li>
+          <li>CC and BCC according to the <a href="/admin/psugasia/ptc5/settings.html" target="_blank">email settings</a></li>
+        </ul>
+      </p>
+    </div>
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" id="button_preview" onclick="emailPreview()">Preview</button>
+    </div>
+
+    <div class="feedback-alert" id="div_emailpreview" style="display: none; max-height: unset;">
+      <p>
+        Clicking the button below will potentially send <span id="span_emailcount" style="font-weight: bold;"></span> emails.  This process cannot be stopped once started.
+      </p>
+      <p>
+        <button type="button" id="button_send" onclick="emailSend()">Send Emails</button>
+      </p>
+    </div>
+
+    <div class="box-round" id="div_emailprogress" style="display: none;">
+      <table class="grid" id="table_emailprogress">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Email Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

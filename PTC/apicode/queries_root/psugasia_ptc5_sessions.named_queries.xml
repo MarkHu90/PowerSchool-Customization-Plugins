@@ -1,0 +1,342 @@
+<queries>
+  <query name="com.psugasia.ptc5.sessions.list" flattened="true">
+    <args>
+      <arg name="schoolid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_sessions.id">result.id</column>
+      <column column="schools.name">result.school</column>
+      <column column="terms.yearid">result.yearid</column>
+      <column column="terms.name">result.year</column>
+      <column column="u_ptc5_sessions.name">result.name</column>
+      <column column="u_ptc5_sessions.priority_open">result.priority_open</column>
+      <column column="u_ptc5_sessions.priority_close">result.priority_close</column>
+      <column column="u_ptc5_sessions.general_open">result.general_open</column>
+      <column column="u_ptc5_sessions.general_close">result.general_close</column>
+      <column column="u_ptc5_sessions.grade_levels">result.grade_levels</column>
+      <column column="terms.abbreviation">result.terms</column>
+      <column column="u_ptc5_sessions.status">result.status</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+ps.id,
+h.name as school,
+y.yearid,
+y.name as year,
+ps.name,
+ps.priority_open,
+ps.priority_close,
+ps.general_open,
+ps.general_close,
+ps.grade_levels,
+listagg(r.abbreviation,',') within group (order by r.id) as terms,
+ps.status
+
+from u_ptc5_sessions ps
+inner join schools h on ps.schoolid = h.school_number
+inner join terms y on ps.yearid = y.yearid and y.isyearrec = 1 and y.schoolid = ps.schoolid
+inner join terms r on ps.termdcids like '%,'||r.dcid||',%'
+
+where
+(:schoolid = '0' or ps.schoolid = :schoolid)
+
+group by
+h.name,
+y.yearid,
+y.name,
+ps.name,
+ps.priority_open,
+ps.priority_close,
+ps.general_open,
+ps.general_close,
+ps.grade_levels,
+ps.id,
+ps.status
+
+order by 
+h.name,
+y.yearid desc,
+ps.name
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_sessions.id">result.id</column>
+      <column column="u_ptc5_sessions.schoolid">result.schoolid</column>
+      <column column="u_ptc5_sessions.yearid">result.yearid</column>
+      <column column="u_ptc5_sessions.name">result.name</column>
+      <column column="u_ptc5_sessions.remarks">result.remarks</column>
+      <column column="u_ptc5_sessions.instructions">result.instructions</column>
+      <column column="u_ptc5_sessions.priority_open">result.priority_open</column>
+      <column column="u_ptc5_sessions.priority_close">result.priority_close</column>
+      <column column="u_ptc5_sessions.priority_limit">result.priority_limit</column>
+      <column column="u_ptc5_sessions.general_open">result.general_open</column>
+      <column column="u_ptc5_sessions.general_close">result.general_close</column>
+      <column column="u_ptc5_sessions.general_limit">result.general_limit</column>
+      <column column="u_ptc5_sessions.grade_levels">result.grade_levels</column>
+      <column column="u_ptc5_sessions.termdcids">result.termdcids</column>
+      <column column="u_ptc5_sessions.checkteacherschedule">result.checkteacherschedule</column>
+      <column column="u_ptc5_sessions.blockapproval">result.blockapproval</column>
+      <column column="u_ptc5_sessions.studentsignup">result.studentsignup</column>
+      <column column="u_ptc5_sessions.siblingtimeslots">result.siblingtimeslots</column>
+      <column column="u_ptc5_sessions.status">result.status</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+id,
+schoolid,
+yearid,
+name,
+remarks,
+instructions,
+priority_open,
+priority_close,
+priority_limit,
+general_open,
+general_close,
+general_limit,
+grade_levels,
+termdcids,
+checkteacherschedule,
+blockapproval,
+studentsignup,
+siblingtimeslots,
+status
+
+from u_ptc5_sessions
+
+where
+id = :sessionid
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.courses" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="courses.dcid">result.dcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="courses.course_number">result.course_number</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+c.dcid,
+c.course_name,
+c.course_number
+
+from u_ptc5_sessions ps
+inner join school_course hc on ps.schoolid = hc.schoolid and ps.yearid = hc.yearid
+inner join courses c on hc.courseid = c.id
+
+where
+nvl(hc.status,0) = 1
+and ps.id = :sessionid
+
+order by c.course_name, c.course_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.sections" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="sections.dcid">result.dcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="courses.dcid">result.coursedcid</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+e.dcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst,
+c.dcid as coursedcid
+
+from u_ptc5_sessions ps
+inner join terms r on ps.schoolid = r.schoolid and ps.yearid = r.yearid
+inner join sections e on r.id = e.termid and e.schoolid = ps.schoolid
+inner join courses c on c.course_number = e.course_number
+inner join teachers t on e.teacher = t.id
+
+where
+ps.id = :sessionid
+and ps.termdcids like ',%'||r.dcid||',%'
+
+order by section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.sections.override" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="sections.dcid">result.dcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="students.lastfirst">result.ccids</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+e.dcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst,
+listagg(d.id, ',') within group (order by d.id) as ccids
+
+from u_ptc5_sessions ps
+inner join terms r on ps.schoolid = r.schoolid and ps.yearid = r.yearid
+inner join sections e on r.id = e.termid and e.schoolid = ps.schoolid
+inner join courses c on c.course_number = e.course_number
+inner join teachers t on e.teacher = t.id
+inner join cc d on e.id = d.sectionid
+
+where
+ps.id = :sessionid
+and ps.termdcids like ',%'||r.dcid||',%'
+
+group by
+e.dcid,
+c.course_name,
+e.course_number,
+e.section_number,
+t.lastfirst
+
+order by section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.users" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="teachers.dcid">result.dcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+t.dcid,
+t.lastfirst
+
+from u_ptc5_sessions ps
+inner join teachers t on ps.schoolid = t.schoolid
+
+where
+ps.id = :sessionid
+and t.staffstatus in (1,4)
+
+order by t.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.students" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="students.dcid">result.dcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+s.dcid,
+s.lastfirst
+
+from u_ptc5_sessions ps
+inner join students s on ps.schoolid = s.schoolid
+
+where
+ps.id = :sessionid
+and s.enroll_status in (0,-1)
+and ps.grade_levels like '%,'||s.grade_level||',%'
+
+order by s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.student.cc" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+      <arg name="studentdcid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="cc.id">result.id</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="sections.dcid">result.sectiondcid</column>
+      <column column="teachers.dcid">result.schoolstaffdcid</column>
+      <column column="sections.section_number">result.mustmeet</column>
+    </columns>
+    <sql>
+<![CDATA[
+select distinct
+d.id,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+t.lastfirst,
+e.dcid as sectiondcid,
+t.dcid as schoolstaffdcid,
+case 
+  when pmme.id is not null then 'e'
+  when pmm.id is not null then 't' 
+  else '' 
+end as mustmeet
+
+from students s
+inner join cc d on s.id = d.studentid
+inner join sections e on d.sectionid = e.id
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join courses c on e.course_number = c.course_number
+inner join teachers t on e.teacher = t.id
+left outer join u_ptc_mustmeetsections pmme on e.dcid = pmme.sectiondcid and pmme.u_ptc5_sessionsid = :sessionid
+left outer join u_ptc_mustmeet pmm on d.id = pmm.ccid and pmm.u_ptc5_sessionsid = :sessionid
+
+where
+s.dcid = :studentdcid
+and e.schoolid = (select schoolid from u_ptc5_sessions where id = :sessionid)
+and r.yearid = (select yearid from u_ptc5_sessions where id = :sessionid)
+and d.id not in (select ccid from u_ptc5_cc where u_ptc5_sessionsid = :sessionid and ccid is not null)
+
+order by section_number
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.sessions.single.timeslots.count" flattened="true">
+    <args>
+      <arg name="sessionid" type="primitive" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.cnt</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+count(pt.id) as cnt
+
+from u_ptc5_sessions ps
+inner join u_ptc5_timeslots pt on ps.id = pt.u_ptc5_sessionsid
+
+where
+ps.id = :sessionid
+]]>
+    </sql>
+  </query>
+</queries>

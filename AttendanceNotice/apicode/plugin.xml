@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://plugin.powerschool.pearson.com" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  description="PSUG Asia Attendance Notices customization files and API access" 
+  name="PSUG Asia Attendance Notices API" 
+  version="2.0.0" 
+  xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+
+	<oauth></oauth>
+  <access_request>
+    <field table="attendance" field="id" access="FullAccess" />
+    <field table="attendance" field="dcid" access="FullAccess" />
+    <field table="attendance" field="ATTENDANCE_CODEID" access="FullAccess" />
+    <field table="attendance" field="CALENDAR_DAYID" access="FullAccess" />
+    <field table="attendance" field="SCHOOLID" access="FullAccess" />
+    <field table="attendance" field="YEARID" access="FullAccess" />
+    <field table="attendance" field="STUDENTID" access="FullAccess" />
+    <field table="attendance" field="CCID" access="FullAccess" />
+    <field table="attendance" field="PERIODID" access="FullAccess" />
+    <field table="attendance" field="ATT_MODE_CODE" access="FullAccess" />
+    <field table="attendance" field="ATT_COMMENT" access="FullAccess" />
+    <field table="attendance" field="ATT_DATE" access="FullAccess" />
+  </access_request>
+
+  <publisher name="PSUG Solutions">
+    <contact email="support@psugsolutions.com" />
+  </publisher>
+
+</plugin>

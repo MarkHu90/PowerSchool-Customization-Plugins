@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PTC</title>
+<!-- required scripts -->
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>PTC</h1> 
+  <form name="navigation"> 
+<!-- start of content area --> 
+  <div class="box-round"> 
+
+    <table class="linkDescList">
+      <tr>
+        <td><a href="ptcsessions.html">PTC Sessions</a></td>
+        <td>The current year's PTC session details</td>
+      </tr>
+      <tr>
+        <td><a href="ptcschedule.html">PTC Schedule</a></td>
+        <td>View your PTC schedule (will only show booked timeslots)</td>
+      </tr>
+      <tr>
+        <td><a href="ptcwholeschedule.html">PTC Whole Schedule</a></td>
+        <td>View your whole PTC schedule (will show all timeslots regardless if there is a booking or not)</td>
+      </tr>
+      <tr>
+        <td><a href="blocktimeslots.html">Block Timeslots</a></td>
+        <td>Define your blocked timeslots</td>
+      </tr>
+      <tr>
+        <td><a href="mustmeet.html">Must Meet Students</a></td>
+        <td>Specify students that you must have a meeting with</td>
+      </tr>
+      <tr>
+        <td><a href="ptcsettings.html">My PTC Settings</a></td>
+        <td>View/edit your PTC settings</td>
+      </tr>
+    </table>
+
+  </div> 
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>General Settings</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let idInt = -1;
+
+    async function loadRecord() {
+      let license = await getPQ(
+        'com.psugasia.ptc5.settings', 
+        0, 
+        {},
+        [
+          'id',
+          'licensekey',
+          'timezone_code',
+          'timezone_ics',
+          'smtp_server',
+          'smtp_username',
+          'smtp_password',
+          'email_from',
+          'email_cc',
+          'email_bcc',
+          'parentmessage'
+        ],
+        true
+      );
+      $j('#r_id').val(license.id);
+      $j('#r_licensekey').val(license.licensekey);
+      $j('#r_smtp_server').val(license.smtp_server);
+      $j('#r_smtp_username').val(license.smtp_username);
+      $j('#r_smtp_password').val(license.smtp_password);
+      $j('#r_email_from').val(license.email_from);
+      $j('#r_email_cc').val(license.email_cc);
+      $j('#r_email_bcc').val(license.email_bcc);
+      $j('#r_parentmessage').val(license.parentmessage);
+
+      if (license?.licensekey) {
+        let php = await getPHP(
+          'https://www.psugasia.com/webapps/api/ptc/v5/licensecheck.php', 
+          {
+            a: license.licensekey,
+            h: 'checklicense'
+          },
+          [
+            'expire',
+            'id'
+          ],
+          true
+        );
+        $j('#r_expirydate').html(php.expire);
+        idInt = php.id;
+      }
+
+      $j.getJSON('timezones.json', function(supportedTimezones) {
+        $j.getJSON('https://tz.add-to-calendar-technology.com/api/zones.json', function(icsTimezones) {
+          if (supportedTimezones.length > 0 && icsTimezones.length > 0) {
+            timezones = supportedTimezones.filter((t) => icsTimezones.includes(t));
+            //timezones.sort();
+            $j('#r_timezone_code').empty();
+            $j('#r_timezone_code').append('<option value=""></option>');
+            timezones.forEach(function(timezone) {
+              $j('#r_timezone_code').append('<option value="'+timezone+'">'+timezone+'</option>');
+            });
+            $j('#r_timezone_code').chosen("destroy");
+            $j('#r_timezone_code').chosen({
+              no_results_text: "Oops, nothing found!"
+            });
+            if (license?.timezone_code)
+              $j('#r_timezone_code').val(license.timezone_code).trigger("chosen:updated");
+            if (license?.timezone_ics)
+              $j('#r_timezone_ics').val(license.timezone_ics);
+          }
+        });
+      });
+    }
+
+    async function saveRecord() {
+      $j('#div_confirm').hide();
+      let recordID = $j('#r_id').val();
+      let licenseKey = $j('#r_licensekey').val();
+      let timezoneCode = $j('#r_timezone_code').val();
+      let smtpServer = $j('#r_smtp_server').val();
+      let smtpUsername = $j('#r_smtp_username').val();
+      let smtpPassword = $j('#r_smtp_password').val();
+      let emailFrom = $j('#r_email_from').val();
+      let emailCC = $j('#r_email_cc').val();
+      let emailBCC = $j('#r_email_bcc').val();
+      let parentMessage = $j('#r_parentmessage').val();
+
+      let vtimezone = await fetch('https://tz.add-to-calendar-technology.com/api/'+timezoneCode+'.ics', {
+        method: "GET"
+      });
+      let timezoneICS = await vtimezone.text();
+
+      let request = {};
+      if (!recordID) {
+        request = {
+          url: '/ws/schema/table/u_ptc5_settings',
+          method: 'POST',
+          body: {
+            "tables": {
+              "u_ptc5_settings": {
+                "licensekey": String(licenseKey),
+                "timezone_code": String(timezoneCode),
+                "timezone_ics": String(timezoneICS),
+                "smtp_server": String(smtpServer),
+                "smtp_username": String(smtpUsername),
+                "smtp_password": String(smtpPassword),
+                "email_from": String(emailFrom),
+                "email_cc": String(emailCC),
+                "email_bcc": String(emailBCC),
+                "parentmessage": String(parentMessage)
+              }
+            }
+          }
+        };
+      }
+      else {
+        request = {
+          url: '/ws/schema/table/u_ptc5_settings/'+recordID,
+          method: 'PUT',
+          body: {
+            "tables": {
+              "u_ptc5_settings": {
+                "licensekey": String(licenseKey),
+                "timezone_code": String(timezoneCode),
+                "timezone_ics": String(timezoneICS),
+                "smtp_server": String(smtpServer),
+                "smtp_username": String(smtpUsername),
+                "smtp_password": String(smtpPassword),
+                "email_from": String(emailFrom),
+                "email_cc": String(emailCC),
+                "email_bcc": String(emailBCC),
+                "parentmessage": String(parentMessage)
+              }
+            }
+          }
+        };
+      }
+
+      await fetch(request.url, {
+        method: request.method,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(request.body)
+      });
+
+      let php = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/licensecheck.php', 
+        {
+          a: licenseKey,
+          h: 'update',
+          timezone: $j('#r_timezone_code').val(),
+          id: idInt
+        },
+        [
+          'result'
+        ],
+        true
+      );
+
+      $j('#div_confirm').show();
+      loadRecord();
+    }
+
+    $j(function() {
+      loadRecord();
+      loadExplanationToolTips();
+    });
+  </script>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+  <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; General Settings
+  <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>General Settings</h1> 
+<!-- start of content area --> 
+  
+  <div class="feedback-confirm" style="display: none;" id="div_confirm">
+    Changes saved
+  </div>
+
+  <div class="feedback-info">
+    Please contact <a href="mailto:supportps@psugasia.com">supportps@psugasia.com</a> for license renewal.
+  </div>
+
+  <input type="hidden" id="r_id" value="">
+  <input type="hidden" id="r_timezone_ics" value="">
+  <fieldset>
+    <legend>General</legend>
+    <div>
+      <label for="r_timezone_code">Timezone <button type="button" class="explanation" data-contentid="timezone">?</button></label>
+      <select id="r_timezone_code" style="width: 200px;"></select>
+    </div>
+    <div>
+      <label for="r_parentmessage">Enable Parent Message <button type="button" class="explanation" data-contentid="parentmessage">?</button></label>
+      <select id="r_parentmessage">
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <div>
+      <label for="r_licensekey">License Key <button type="button" class="explanation" data-contentid="licensekey">?</button></label>
+      <input type="text" id="r_licensekey" style="width: 400px;" value="">
+    </div>
+    <div>
+      <label>License Expiry Date</label>
+      <span id="r_expirydate"></span>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Email <button type="button" class="explanation" data-contentid="email">?</button></legend>
+    <div>
+      <label for="r_smtp_server">SMTP Server <button type="button" class="explanation" data-contentid="smtpserver">?</button></label>
+      <input type="text" id="r_smtp_server" style="width: 300px;" value="">
+    </div>
+    <div>
+      <label for="r_smtp_username">SMTP Username</label>
+      <input type="text" id="r_smtp_username" style="width: 200px;" value="">
+    </div>
+    <div>
+      <label for="r_smtp_password">SMTP Password</label>
+      <input type="password" id="r_smtp_password" style="width: 200px;" value="">
+    </div>
+    <div>
+      <label for="r_email_from">From Email <button type="button" class="explanation" data-contentid="emailfrom">?</button></label>
+      <input type="text" id="r_email_from" style="width: 400px;" value="">
+    </div>
+    <div>
+      <label for="r_email_cc">CC Email <button type="button" class="explanation" data-contentid="emailcc">?</button></label>
+      <input type="text" id="r_email_cc" style="width: 400px;" value="">
+    </div>
+    <div>
+      <label for="r_email_bcc">BCC Email <button type="button" class="explanation" data-contentid="emailbcc">?</button></label>
+      <input type="text" id="r_email_bcc" style="width: 400px;" value="">
+    </div>
+  </fieldset>
+
+  <div class="button-row">
+    <button type="button" onclick="saveRecord()">Submit</button>
+  </div>
+
+  <div id="explanation_licensekey" style="display:none;">
+    Please do not change the license key unless instructed to do so.
+  </div>
+
+  <div id="explanation_timezone" style="display:none;">
+    The timezone you are in.  This setting is required to ensure session open/close date/time calcuations and calendar imports work properly.
+  </div>
+
+  <div id="explanation_email" style="display:none;">
+    These settings are only needed if you intend to send parent emails.
+  </div>
+
+  <div id="explanation_smtpserver" style="display:none;">
+    IP address or domain name of the SMTP server.
+  </div>
+
+  <div id="explanation_emailfrom" style="display:none;">
+    The email address parent emails will be sent from.
+  </div>
+
+  <div id="explanation_emailcc" style="display:none;">
+    Comma separated list of email addresses to CC to on all parent emails (optional).
+  </div>
+
+  <div id="explanation_emailbcc" style="display:none;">
+    Comma separated list of email addresses to BCC to on all parent emails (optional).
+  </div>
+
+  <div id="explanation_parentmessage" style="display:none;">
+    Allow parents to add personalized messages to teachers when making bookings.
+  </div>
+
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

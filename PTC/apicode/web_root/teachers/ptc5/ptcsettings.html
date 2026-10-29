@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My PTC Settings</title>
+<!-- required scripts -->
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psQuery/psQuery.js"></script>
+  <script>
+    const curTeacherDCID = '~[tlist_sql;select dcid from teachers where users_dcid = '~[x:users_dcid]' and schoolid = '~(curschoolid)';]~(dcid)[/tlist_sql]';
+
+    async function loadRecord() {
+      let settings = await getPQ(
+        'com.psugasia.ptc5.general.teachers.mysettings', 
+        0, 
+        {
+          'schoolstaffdcid': curTeacherDCID
+        },
+        [
+          'schoolstaffdcid',
+          'excluded',
+          'room',
+          'onlineurl'
+        ],
+        true
+      );
+
+      $j('#r_schoolstaffdcid').val(settings.schoolstaffdcid);
+      $j('#r_excluded').html((parseInt(settings.excluded) === 1 ? 'Yes' : 'No'));
+      $j('#r_room').val(settings.room);
+      $j('#r_onlineurl').val(settings.onlineurl);
+    }
+
+    function saveRecord() {
+      let recordID = $j('#r_schoolstaffdcid').val();
+      if (recordID) {
+        $psq('u_schoolstaff_ptc5').update(recordID, {room: $j('#r_room').val(), onlineurl: $j('#r_onlineurl').val()}, function(returnID) {
+          $j('#div_confirm').show();
+        });
+      }
+      else {
+        let psqParent = {table: 'schoolstaff', id: curTeacherDCID};
+        let psqFields = {room: $j('#r_room').val(), onlineurl: $j('#r_onlineurl').val()};
+        $psq('u_schoolstaff_ptc5').insertChild(psqParent, psqFields, function(returnID) {
+          loadRecord();
+          $j('#div_confirm').show();
+        });
+      }
+    }
+
+    $j(function() {
+      loadRecord();
+      loadExplanationToolTips();
+    });
+  </script>
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>My PTC Settings</h1> 
+  <form name="navigation"> 
+<!-- start of content area --> 
+
+  <div class="feedback-confirm" style="display: none;" id="div_confirm">
+    Changes saved
+  </div>
+
+  <input type="hidden" id="r_schoolstaffdcid" value="">
+  <fieldset>
+    <div>
+      <label>Excluded <button type="button" class="explanation" data-contentid="excluded">?</button></label>
+      <span id="r_excluded"></span>
+    </div>
+    <div>
+      <label>Location <button type="button" class="explanation" data-contentid="room">?</button></label>
+      <input type="text" id="r_room" value="" style="width: 200px;">
+    </div>
+    <div>
+      <label>Meeting URL <button type="button" class="explanation" data-contentid="onlineurl">?</button></label>
+      <input type="text" id="r_onlineurl" value="" style="width: 500px;" placeholder="https://">
+    </div>
+  </fieldset>
+
+  <div class="button-row">
+    <button type="button" onclick="saveRecord()">Submit</button>
+  </div>
+
+  <div id="explanation_excluded" style="display:none;">
+    If you are excluded from PTC signups.  This is controlled by admin.
+  </div>
+
+  <div id="explanation_room" style="display:none;">
+    The location to meet parents and students instead of the section's room.
+  </div>
+
+  <div id="explanation_onlineurl" style="display:none;">
+    The URL for online meetings (if applicable), must include http:// or https://
+  </div>
+
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

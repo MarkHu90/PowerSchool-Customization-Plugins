@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Calendar</title>
+  <link rel="stylesheet" href="/scripts/psugasia/attendancenotices/jqueryui/jquery-ui.min.css">
+  <link rel='stylesheet' href='/scripts/psugasia/attendancenotices/fullcalendar/fullcalendar.min.css' />
+  <link href="/scripts/psugasia/attendancenotices/psugasia_attendancenotices_admin.css" rel="stylesheet" />
+
+  <style>
+    body {font-family: Lato, sans-serif;}
+    .fc-basic-view .fc-body .fc-row {min-height: 6em;}
+    .fc-newAttendanceNoticeButton-button {color: orange;}
+  </style>
+
+  <script src="/scripts/psugasia/attendancenotices/fullcalendar/jquery.min.js"></script>
+  <script src="/scripts/psugasia/attendancenotices/jqueryui/jquery-ui.min.js"></script>
+  <script src='/scripts/psugasia/attendancenotices/fullcalendar/moment.min.js'></script>
+  <script src='/scripts/psugasia/attendancenotices/fullcalendar/fullcalendar.min.js'></script>
+  <script src="/scripts/psugasia/attendancenotices/psugasia_attendancenotices.js"></script>
+  <script src="/scripts/psugasia/attendancenotices/isdate.js"></script>
+
+  <script>
+    jQuery(document).ready(function() {
+      ~[tlist_sql;
+      select
+      nvl(calendar_cycledays,0) as calendar_cycledays,
+      nvl(calendar_notes,0) as calendar_notes,
+      nvl(calendar_weekend,0) as calendar_weekend
+
+      from u_attendancenotices_settings
+      where
+      schoolid = '~(curschoolid)'
+      ;]
+      if ('~(calendar_cycledays)' == '1')
+        jQuery("#cycledays_checkbox").prop("checked", true);
+      if ('~(calendar_notes)' == '1')
+        jQuery("#notes_checkbox").prop("checked", true);
+      if ('~(calendar_weekend)' == '1')
+        jQuery("#weekend_checkbox").prop("checked", true);
+      [/tlist_sql]
+
+      jQuery('#calendar').fullCalendar({
+        contentHeight: "auto",
+        allDaySlot: false,
+        defaultView: 'month',
+        ~[tlist_sql;
+        select
+        calendar_slotduration,
+        calendar_starttime,
+        calendar_endtime,
+        decode(nvl(calendar_weekend,0),1,'true','false') as calendar_weekend
+        from U_attendancenotices_settings
+        where
+        schoolid = '~(curschoolid)'
+        ;]
+        slotDuration: '~(calendar_slotduration;js):00',
+        minTime: '~(calendar_starttime;js):00',
+        maxTime: '~(calendar_endtime;js):00',
+        weekends: ~(calendar_weekend;js),
+        [/tlist_sql]
+        customButtons: {
+          newAttendanceNoticeButton: {
+            text: 'Add Attendance Notice',
+            click: function() {
+              jQuery('<div>').dialog({
+                modal: true,
+                position: { my: "center", at: "center", of: "body" },
+                open: function() {
+                  jQuery(this).load('calendar_edit.html?id=-1');
+                },
+                close: function() {
+                  jQuery(this).empty();
+                },
+                width: 600,
+                height: 370,
+                title: 'Attendance Notice Details'
+              });
+            }
+          }
+        },
+        header: {
+          left: 'prev,next today newAttendanceNoticeButton',
+          center: 'title',
+          right: 'month,agendaWeek,agendaDay,listYear'
+        },
+        views: {
+  				listYear: { buttonText: 'journal' }
+  			},
+        eventClick: function(event) {
+          if (event.url) {
+            jQuery('<div>').dialog({
+              modal: true,
+              position: { my: "center", at: "center", of: "body" },
+              open: function() {
+                jQuery(this).load(event.url);
+              },
+              close: function() {
+                jQuery(this).empty();
+              },
+              width: 600,
+              height: 370,
+              title: 'Attendance Notice Details'
+            });
+            //window.open(event.url, "_top");
+            return false;
+          }
+        }
+      });
+
+      reloadEventSource();
+    });
+
+    function reloadEventSource() {
+      jQuery('#calendar').fullCalendar('removeEventSources');
+      var parameters = '&';
+      if(jQuery("#cycledays_checkbox").prop("checked"))
+        parameters += 'cycledays=1';
+      else
+        parameters += 'cycledays=0';
+
+      if(jQuery("#notes_checkbox").prop("checked"))
+        parameters += '&notes=1';
+      else
+        parameters += '&notes=0';
+      jQuery('#calendar').fullCalendar('addEventSource','calendar_calendar.json?frn=~(gpv.frn)'+parameters);
+    }
+
+    function reloadWeekend() {
+      if(jQuery("#weekend_checkbox").prop("checked"))
+        jQuery('#calendar').fullCalendar('option','weekends',true);
+      else
+        jQuery('#calendar').fullCalendar('option','weekends',false);
+    }
+  </script>
+
+</head>
+<body>
+  <div style="text-align: right; margin-bottom: 10px;">
+  <strong>Weekends</strong> <label class="switch"><input type="checkbox" id="weekend_checkbox" value="1" onclick="reloadWeekend()"><span class="slider round"></span></label>
+  &nbsp;&nbsp;&nbsp;
+  <strong>Calendar Notes</strong> <label class="switch"><input type="checkbox" id="notes_checkbox" value="1" onclick="reloadEventSource()"><span class="slider round"></span></label>
+  &nbsp;&nbsp;&nbsp;
+  <strong>Cycle Days</strong> <label class="switch"><input type="checkbox" id="cycledays_checkbox" value="1" onclick="reloadEventSource()"><span class="slider round"></span></label>
+  </div>
+  <div id="calendar"></div>
+</body>
+</html>

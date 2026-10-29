@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Must Meet Sections</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let dTable;
+    const dTableID = 'table_mustmeetsections';
+    const extensionTableName = 'u_ptc_mustmeetsections';
+    let dTableColumns = [];
+
+    function updateSession() {
+      if ($j('#sr_session').val()) {
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+
+        $j('#a_section').chosen({
+          width: "400px",
+          no_results_text: "Oops, nothing found!"
+        });
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadSections() {
+      let sectionsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.sections', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+
+      $j('#a_section').empty();
+      $j('#a_section').append('<option value=""></option>');
+      sectionsList.forEach(function(v, i, a) {
+        $j('#a_section').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+      });
+      $j('#a_section').trigger("chosen:updated");
+      $j('#a_section').trigger('change');
+    }
+
+    async function getDTableData(recordID = '-1') {
+      return await getPQ(
+        'com.psugasia.ptc5.mustmeet.sections', 
+        0, 
+        {
+          'sessionid': sessionID,
+          'recordid': recordID
+        },
+        [
+          'id',
+          'sectiondcid',
+          'course_name',
+          'section_number',
+          'lastfirst',
+          'message',
+          'coursedcid',
+          'course_number',
+          'term',
+          'save',
+          'delete'
+        ],
+        (parseInt(recordID) === -1 ? false : true)
+      );
+    }
+
+    function showDTable() {
+      $j('#div_dtable').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      dTableColumns = [
+        { name: "section_number", title: "Section Number", data: 'section_number', render: function ( data, type, row ) {
+          if (type == 'display') {
+            return '<a href="/admin/sections/edit.html?lrn=002'+row.coursedcid+'&frn=003'+row.sectiondcid+'&cn='+row.course_number+'&sortby=name&pagecontext=sections" target="_blank">'+data+'</a>';
+          }
+          else
+            return data;
+        } },
+        { name: "course_name", title: "Course", data: 'course_name' },
+        { name: "term", title: "Term", data: 'term' },
+        { name: "lastfirst", title: "Teacher", data: 'lastfirst' },
+        { name: "message", title: "Message to Parents", data: 'message', render: function ( data, type, row ) {
+          if (type == 'display') {
+            return '<textarea class="r_message" onchange="markChanged(this)">'+data+'</textarea>';
+          }
+          else
+            return data;
+        } },
+        { name: "save", title: "", data: 'save', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" class="button_save" onclick="saveRecord(this)">Save</button>';
+          else
+            return data;
+        } },
+        { name: "delete", title: "", data: 'delete', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" class="button_delete" onclick="deleteRecord(this)">Delete</button>';
+          else
+            return data;
+        } },
+      ];
+
+      dTable = new DataTable('#'+dTableID, {
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.id);
+        }
+      });
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'section_number':
+            case 'message':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'course_name':
+            case 'teacher':
+            case 'term':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+          }
+        });
+      }
+    }
+
+    async function deleteRecord(e) {
+      if ($j(e).data('suppressconfirm') || confirm("Are you sure you want to delete this record?")) {
+        let row = $j(e).closest('tr');
+        let recordID = $j(row).data('recordid');
+        let api = await fetch('/ws/schema/table/'+extensionTableName+'/'+recordID, {
+          method: 'DELETE',
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        dTable.row(dTable.row(row).index()).remove();
+        $j(row).remove();
+        dTableFilters();
+      }
+    }
+
+    function deleteAll() {
+      if (confirm("Are you sure you want to delete all shown records?")) {
+        dTable.rows({page: 'current'}).every(function(rowIdx, tableLoop, rowLoop) {
+          $j('button.button_delete', this.node()).data('suppressconfirm', true).trigger('click');
+        });
+      }
+    }
+
+    function markChanged(e) {
+      $j(e).closest('tr').addClass('changed');
+    }
+
+    async function addRecord() {
+      if ($j('#'+dTableID+' tbody tr.changed').length > 0) {
+        alert("Please save changes before adding new records");
+      }
+      else {
+        $j('#a_message').val('');
+        await loadSections();
+        $j('#div_dialog_add').dialog({
+          modal: true,
+          width: 800,
+          height: 450,
+          buttons: [
+            {
+              text: 'Submit',
+              click: async function() {
+                if (isMissingInput()) {
+                  alert("Please fill in all required fields");
+                  $j('.requiredInputMissing').first().focus();
+                  return;
+                }
+
+                let dialog = this;
+                if ($j('#a_section').val()) {
+                  let api = await fetch('/ws/schema/table/'+extensionTableName, {
+                    method: 'POST',
+                    headers: {
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                      "tables": {
+                        [extensionTableName]: {
+                          "u_ptc5_sessionsid": String(sessionID),
+                          "sectiondcid": String($j('#a_section').val()),
+                          "message": String($j('#a_message').val())
+                        }
+                      }
+                    })
+                  });
+                  //const response = await api.json();
+                  dTable.ajax.reload();
+                }
+                $j(dialog).dialog("close");
+              }
+            }
+          ]
+        });
+      }
+    }
+
+    async function saveRecord(e) {
+      let row = $j(e).closest('tr');
+      let recordID = $j(row).data('recordid');
+      let api = await fetch('/ws/schema/table/'+extensionTableName+'/'+recordID, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "tables": {
+            [extensionTableName]: {
+              "message": $j('textarea.r_message', row).val()
+            }
+          }
+        })
+      });
+      let updatedRowData = await getDTableData(recordID);
+      dTable.row(dTable.row(row).index()).data(updatedRowData).invalidate();
+      $j(row).removeClass('changed');
+      dTableFilters();
+    }
+
+    function saveAll() {
+      dTable.rows({page: 'current'}).every(function(rowIdx, tableLoop, rowLoop) {
+        $j('button.button_save', this.node()).trigger('click');
+      });
+    }
+
+    $j(function() {
+      updateSession();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+    textarea.r_message {
+      width: 250px;
+      height: 1.3em;
+    }
+    .changed {
+      background-color: plum !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Must Meet Sections
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Must Meet Sections</h1> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+
+    <div class="feedback-info">
+      <ul>
+        <li>Students will be required to make a booking for sections listed here (if they are enrolled in it) to complete the signup process.</li>
+        <li>If you want to set this requirement for specific students (instead of the whole section), use the <a href="mustmeet_cc.html" target="_blank">Must Meet Students List</a>.</li>
+      </ul>
+    </div>
+
+
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" onclick="showDTable()">Show List</button>
+    </div>
+
+    <div class="box-round" id="div_dtable" style="padding: 10px; display: none;">
+      <div class="button-row">
+        <button type="button" onclick="addRecord()">Add</button>
+      </div>
+
+      <table class="display compact" id="table_mustmeetsections">
+        <thead>
+          <tr>
+            <th>Section Number</th>
+            <th>Course Name</th>
+            <th>Term</th>
+            <th>Teacher</th>
+            <th>Message to Parents</th>
+            <th class="alwaysshow noexport"></th>
+            <th class="alwaysshow noexport"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th class="centered"></th>
+            <th class="centered"></th>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="button-row">
+        <button type="button" onclick="saveAll()">Save All</button>
+        <button type="button" onclick="deleteAll()">Delete All</button>
+      </div>
+
+      <div id="div_dialog_add" style="display:none;" title="Add Must Meet Section">
+        <fieldset>
+          <div>
+            <label><span class="requiredInput">Section</span></label>
+            <select id="a_section"></select>
+          </div>
+          <div>
+            <label>Message to Parents</label>
+            <textarea id="a_message" style="width: 400px; height: 4em;"></textarea>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

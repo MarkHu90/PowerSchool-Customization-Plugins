@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Delete Signups</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/sortable/sortable.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/sortable/sortable.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+
+    async function getCounts() {
+      let records = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+        {
+          a: licenceKey,
+          h: 'count'
+        },
+        [
+          'sessionid',
+          'cnt'
+        ],
+        false
+      );
+
+      records.forEach(function(record) {
+        $j('#table_list tbody tr[data-sessionid="'+record.sessionid+'"] td.recordscount').html(record.cnt);
+      });
+    }
+
+    async function deleteRecords(e, sessionID) {
+      //console.log(sessionID);
+      if (parseInt($j(e).closest('tr').find('td.recordscount').html()) === 0)
+        alert("There are no records to delete for this session");
+      else {
+        if (confirm("Are you sure you want to delete all signups in this session?")) {
+          $j(e).html('Deleting...').prop('disabled', true);
+
+          let response = await getPHP(
+            'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+            {
+              a: licenceKey,
+              b: sessionID,
+              h: 'signupsdelete'
+            },
+            [
+              'result'
+            ],
+            true
+          );
+
+          if (response?.result == 'success') {
+            $j(e).closest('tr').find('td.recordscount').html('0');
+            $j(e).html('Delete').prop('disabled', false);
+          }
+          else {
+            console.log(response);
+            alert("There was a problem processing this record, please try again");
+            $j(e).html('Delete').prop('disabled', false);
+          }
+        }
+      }
+    }
+
+    function exportRecords(e, sessionID) {
+      //console.log(sessionID);
+      if (parseInt($j(e).closest('tr').find('td.recordscount').html()) === 0)
+        alert("There are no records to export for this session");
+      else {
+        $j(e).html('Exporting...').prop('disabled', true);
+
+        window.open('https://www.psugasia.com/webapps/api/ptc/v5/adminsignups_export.php?a='+licenceKey+'&b='+sessionID+'&h=signupsexport&z='+window.location.protocol+"//"+window.location.host);
+
+        $j(e).html('Export').prop('disabled', false);
+      }
+    }
+
+    $j(async function() {
+      loadingDialog();
+      await getCounts();
+      closeLoading();
+    });
+  </script>
+  <style>
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Delete Signups
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Delete Signups</h1> 
+<!-- start of content area --> 
+  <div class="box-round">
+    <div class="feedback-info">
+      <ul>
+        <li>Use this page to delete all signups from a session.</li>
+        <li>Deleting signups of old sessions you no longer need will improve performance.</li>
+        <li>Only showing active sessions from the selected year.</li>
+      </ul>
+    </div>
+
+    <h2 class="toggle collapsed">Export Field Definitions</h2>
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Column</th>
+          <th>Description</th>
+          <th>Database reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>sessionid</td>
+          <td>ID of the session this signup refers to</td>
+          <td>u_ptc5_sessions.id</td>
+        </tr>
+        <tr>
+          <td>studentdcid</td>
+          <td>DCID of the student this signup refers to</td>
+          <td>students.dcid</td>
+        </tr>
+        <tr>
+          <td>timeslotid</td>
+          <td>ID of the timeslot this signup refers to</td>
+          <td>u_ptc5_timeslots.id</td>
+        </tr>
+        <tr>
+          <td>sectiondcid</td>
+          <td>DCID of the section this signup refers to</td>
+          <td>sections.dcid</td>
+        </tr>
+        <tr>
+          <td>schoolstaffdcid</td>
+          <td>DCID of the teacher this signup refers to</td>
+          <td>schoolstaff.dcid</td>
+        </tr>
+        <tr>
+          <td>parentmessage</td>
+          <td>Message parent left for the teacher</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>admin</td>
+          <td>1 = signup was created by admin user<br>0 = signup was created by parent or student</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>mustmeet</td>
+          <td>t = signup is associated with a must meet class enrollment<br>e = signup is associated with a must meet section<br>&lt;blank&gt; = signup is not associated with must meet </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>lastupdated</td>
+          <td>When this signup was last updated</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="grid sortable asc" id="table_list">
+      <thead>
+        <tr>
+          <th>Session</th>
+          <th>School</th>
+          <th>Priority Signup Period</th>
+          <th>General Signup Period</th>
+          <th>Number of Signups</th>
+          <th class="no-sort"></th>
+          <th class="no-sort"></th>
+        </tr>
+      </thead>
+      <tbody>
+~[tlist_sql;
+select
+ps.id as sessionid,
+ps.name,
+h.name as school,
+case 
+  when ps.priority_open is not null then replace(ps.priority_open,'T',' ')||' - '||replace(ps.priority_close,'T',' ')
+  else ''
+end as priorityperiod,
+case 
+  when ps.general_open is not null then replace(ps.general_open,'T',' ')||' - '||replace(ps.general_close,'T',' ')
+  else ''
+end as generalperiod
+
+from u_ptc5_sessions ps
+inner join schools h on ps.schoolid = h.school_number
+
+where
+nvl(ps.status,0) = 1
+and ps.yearid = '~(curyearid)'
+~[if#school.~(curschoolid)#0]and ps.schoolid = '~(curschoolid)'[/if#school]
+
+order by ps.name, h.name, ps.priority_open, ps.general_open
+;nonemessage=<tr><td colspan="7">No records found</td></tr>;]
+        <tr data-sessionid="~(sessionid)">
+          <td>~(name)</td>
+          <td>~(school)</td>
+          <td>~(priorityperiod)</td>
+          <td>~(generalperiod)</td>
+          <td class="recordscount">0</td>
+          <td class="centered"><button type="button" onclick="exportRecords(this, ~(sessionid))">Export</button></td>
+          <td class="centered"><button type="button" onclick="deleteRecords(this, ~(sessionid))">Delete</button></td>
+        </tr>
+[/tlist_sql]
+      </tbody>
+    </table>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

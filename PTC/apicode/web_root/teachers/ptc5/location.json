@@ -1,0 +1,39 @@
+[
+~[tlist_sql;
+select distinct
+s.dcid as studentdcid,
+e.dcid as sectiondcid,
+nvl(t2.dcid, t.dcid) as schoolstaffdcid,
+nvl(t2.lastfirst, t.lastfirst) as teacher,
+nvl(ssp.room,e.room) as room,
+ssp.onlineurl,
+pmme.id as pmmeid,
+pmm.id as pmmid
+
+from students s
+inner join cc d on s.id = d.studentid
+inner join sections e on d.sectionid = e.id
+inner join teachers t on e.teacher = t.id
+left outer join u_ptc5_cc pd on d.id = pd.ccid and pd.u_ptc5_sessionsid = '~(gpv.sessionid)'
+left outer join teachers t2 on pd.schoolstaffdcid = t2.dcid
+left outer join u_schoolstaff_ptc5 ssp on nvl(t2.dcid,t.dcid) = ssp.schoolstaffdcid
+left outer join u_ptc_mustmeetsections pmme on e.dcid = pmme.sectiondcid and pmme.u_ptc5_sessionsid = '~(gpv.sessionid)'
+left outer join u_ptc_mustmeet pmm on d.id = pmm.ccid and pmm.u_ptc5_sessionsid = '~(gpv.sessionid)'
+
+where
+s.dcid = '~(gpv.sdcid)'
+and e.dcid = '~(gpv.edcid)'
+;]
+  {
+    "studentdcid":"~(studentdcid;json)",
+    "sectiondcid":"~(sectiondcid;json)",
+    "schoolstaffdcid":"~(schoolstaffdcid;json)",
+    "teacher":"~(teacher;json)",
+    "room":"~(room;json)",
+    "onlineurl":"~(onlineurl;json)",
+    "pmmeid":"~(pmmeid;json)",
+    "pmmid":"~(pmmid;json)"
+  },
+[/tlist_sql]
+  {}
+]

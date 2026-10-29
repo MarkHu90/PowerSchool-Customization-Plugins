@@ -1,0 +1,144 @@
+<queries>
+  <query name="com.psugasia.ptc5.email.students" flattened="true">
+    <args>
+      <arg name="studentdcids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="students.dcid">result.studentdcid</column>
+      <column column="students.lastfirst">result.lastfirst</column>
+      <column column="emailaddress.emailaddress">result.parentemails</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+s.dcid as studentdcid,
+s.lastfirst,
+listagg(ea.emailaddress, ',') within group (order by ea.emailaddress) as parentemails
+
+from students s
+inner join studentcontactassoc sca on s.dcid = sca.studentdcid
+inner join studentcontactdetail scd on sca.studentcontactassocid = scd.studentcontactassocid and trunc(sysdate) between trunc(nvl(scd.startdate,sysdate)) and trunc(nvl(scd.enddate,sysdate))
+inner join person p on sca.personid = p.id
+inner join codeset cr on scd.relationshiptypecodesetid = cr.codesetid
+inner join personemailaddressassoc peaa on peaa.personid = p.id
+inner join emailaddress ea on peaa.emailaddressid = ea.emailaddressid
+
+where
+s.dcid in (:studentdcids)
+and (
+  lower(cr.code) like '%father%'
+  or
+  lower(cr.code) like '%mother%'
+)
+and lower(cr.codetype) = 'relationship'
+and nvl(scd.isactive,0) = 1
+and ea.emailaddress is not null
+
+group by
+s.dcid,
+s.lastfirst
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.email.timeslots" flattened="true">
+    <args>
+      <arg name="timeslotids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.timeslotid</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+pt.id as timeslotid,
+pt.startdt,
+pt.enddt
+
+from u_ptc5_timeslots pt
+
+where
+pt.id in (:timeslotids)
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.email.sections" flattened="true">
+    <args>
+      <arg name="sectiondcids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="sections.dcid">result.sectiondcid</column>
+      <column column="courses.course_name">result.course_name</column>
+      <column column="sections.section_number">result.section_number</column>
+      <column column="sections.room">result.room</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+e.dcid as sectiondcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+e.room
+
+from sections e
+inner join courses c on e.course_number = c.course_number
+
+where
+e.dcid in (:sectiondcids)
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.email.teachers" flattened="true">
+    <args>
+      <arg name="schoolstaffdcids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="teachers.dcid">result.schoolstaffdcid</column>
+      <column column="teachers.lastfirst">result.lastfirst</column>
+      <column column="u_schoolstaff_ptc5.room">result.room</column>
+      <column column="u_schoolstaff_ptc5.onlineurl">result.onlineurl</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+t.dcid as schoolstaffdcid,
+t.lastfirst,
+hsp.room,
+hsp.onlineurl
+
+from teachers t
+left outer join u_schoolstaff_ptc5 hsp on t.dcid = hsp.schoolstaffdcid
+
+where
+t.dcid in (:schoolstaffdcids)
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.email.settings" flattened="true">
+    <columns>
+      <column column="u_ptc5_settings.smtp_server">result.smtp_server</column>
+      <column column="u_ptc5_settings.smtp_username">result.smtp_username</column>
+      <column column="u_ptc5_settings.smtp_password">result.smtp_password</column>
+      <column column="u_ptc5_settings.email_from">result.email_from</column>
+      <column column="u_ptc5_settings.email_cc">result.email_cc</column>
+      <column column="u_ptc5_settings.email_bcc">result.email_bcc</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+smtp_server,
+smtp_username,
+smtp_password,
+email_from,
+email_cc,
+email_bcc
+
+from u_ptc5_settings
+
+where
+rownum = 1
+]]>
+    </sql>
+  </query>
+</queries>

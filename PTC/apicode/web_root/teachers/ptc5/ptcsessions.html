@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PTC Sessions</title>
+<!-- required scripts -->
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let sessionYearID;
+
+    function updateSession() {
+      if ($j('#sr_session').val()) {
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        sessionYearID = $j('#sr_session').find(':selected').data('yearid');
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function showSessionDetails() {
+      loadingDialog();
+
+      $j('#div_sessiondetails span').empty();
+
+      let session = await getPQ(
+        'com.psugasia.ptc5.sessions.single', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'priority_open',
+          'priority_close',
+          'priority_limit',
+          'general_open',
+          'general_close',
+          'general_limit',
+          'grade_levels',
+          'termdcids',
+          'checkteacherschedule',
+          'blockapproval',
+          'studentsignup'
+        ],
+        true
+      );
+
+      let terms = await getPQ(
+        'com.psugasia.ptc5.general.terms', 
+        0, 
+        {
+          'schoolid': sessionSchoolID,
+          'yearid': sessionYearID
+        },
+        [
+          'dcid',
+          'name'
+        ],
+        false
+      );
+
+      if (String(session.priority_open) != '' && +String(session.priority_close) != '')
+        $j('#r_priority_open').html(String(session.priority_open).replaceAll('T',' ')+'<br>/<br>'+String(session.priority_close).replaceAll('T',' '));
+      else
+        $j('#r_priority_open').html('Not set');
+      $j('#r_priority_limit').html((parseInt(session.priority_limit) === 0 ? 'No Limit' : session.priority_limit));
+      if (String(session.general_open) != '' && +String(session.general_close) != '')
+        $j('#r_general_open').html(String(session.general_open).replaceAll('T',' ')+'<br>/<br>'+String(session.general_close).replaceAll('T',' '));
+      else
+        $j('#r_general_open').html('Not set');
+      $j('#r_general_limit').html((parseInt(session.general_limit) === 0 ? 'No Limit' : session.general_limit));
+      $j('#r_grade_levels').html(String(session.grade_levels).slice(1,-1).replaceAll(',',', '));
+      let termsArray = String(session.termdcids).slice(1,-1).split(',');
+      let termsHTML = '';
+      termsArray.forEach(function(e) {
+        termsHTML += '<li>'+terms.find((t) => parseInt(t.dcid) === parseInt(e)).name+'</li>';
+      });
+      $j('#r_terms').html('<ul style="margin-inline-start: 25px; margin-bottom: 0;">'+termsHTML+'</ul>');
+      $j('#r_checkteacherschedule').html((parseInt(session.checkteacherschedule) === 1 ? 'Yes' : 'No'));
+      $j('#r_studentsignup').html((parseInt(session.studentsignup) === 1 ? 'Yes' : 'No'));
+      $j('#r_blockapproval').html((parseInt(session.blockapproval) === 1 ? 'Yes' : 'No'));
+
+      $j('#div_sessiondetails').show();
+
+      closeLoading();
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>PTC Sessions</h1> 
+  <form name="navigation"> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no PTC sessions in the current school/year.
+  </div>
+
+  <div id="div_existingsession">
+
+    <div class="feedback-info">
+      Select the PTC session you want to see details of.
+    </div>
+
+    <fieldset>
+      <div>
+        <label for="sr_session">PTC Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  yearid,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)" data-yearid="~(yearid)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+      <div class="button-row">
+        <button type="button" onclick="showSessionDetails()">Show Session Details</button>
+      </div>
+    </fieldset>
+
+    <div id="div_sessiondetails" style="display: none;">
+      <fieldset>
+        <legend>Session Details</legend>
+        <div>
+          <label>Priority Signup Period <button type="button" class="explanation" data-contentid="prioritysignup">?</button></label>
+          <span id="r_priority_open"></span>
+        </div>
+        <div>
+          <label>Priority Signup Limit <button type="button" class="explanation" data-contentid="limit">?</button></label>
+          <span id="r_priority_limit"></span>
+        </div>
+        <div>
+          <label>General Signup Period <button type="button" class="explanation" data-contentid="generalsignup">?</button></label>
+          <span id="r_general_open"></span>
+        </div>
+        <div>
+          <label>General Signup Limit <button type="button" class="explanation" data-contentid="limit">?</button></label>
+          <span id="r_general_limit"></span>
+        </div>
+        <div>
+          <label>Grade Levels <button type="button" class="explanation" data-contentid="grade_levels">?</button></label>
+          <span id="r_grade_levels"></span>
+        </div>
+        <div>
+          <label>Terms <button type="button" class="explanation" data-contentid="terms">?</button></label>
+          <span id="r_terms"></span>
+        </div>
+        <div>
+          <label>Check Teacher Schedule <button type="button" class="explanation" data-contentid="checkteacherschedule">?</button></label>
+          <span id="r_checkteacherschedule"></span>
+        </div>
+        <div>
+          <label>Student Sign Ups <button type="button" class="explanation" data-contentid="studentsignup">?</button></label>
+          <span id="r_studentsignup"></span>
+        </div>
+        <div>
+          <label>Blocked Timeslots Approval <button type="button" class="explanation" data-contentid="blockapproval">?</button></label>
+          <span id="r_blockapproval"></span>
+        </div>
+      </fieldset>
+    </div>
+
+    <div id="explanation_grade_levels" style="display:none;">
+      The grade levels this PTC session is open to.
+    </div>
+
+    <div id="explanation_checkteacherschedule" style="display:none;">
+      If timeslots that overlap with your teaching schedule will be automatically blocked.
+    </div>
+
+    <div id="explanation_studentsignup" style="display:none;">
+      If students are allowed to access the signup page.
+    </div>
+
+    <div id="explanation_blockapproval" style="display:none;">
+      If your timeslot blocks will require admin approval.
+    </div>
+
+    <div id="explanation_terms" style="display:none;">
+      Terms this PTC session will pull sections from.
+    </div>
+
+    <div id="explanation_limit" style="display:none;">
+      Maximum number of bookings per student allowed in this signup period.
+    </div>
+
+    <div id="explanation_prioritysignup" style="display:none;">
+      Only students marked as priority will be allowed to signup during this period.
+    </div>
+
+    <div id="explanation_generalsignup" style="display:none;">
+      Everybody will be able to signup during this period.
+    </div>
+
+  </div>
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Timeslots</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionSchoolID;
+    let sessionGradeLevels;
+    let coursesList = [];
+    let sectionsList = [];
+    let usersList = [];
+
+    function updateSession() {
+      if ($j('#ct_session').val()) {
+        sessionSchoolID = $j('#ct_session').find(':selected').data('schoolid');
+        sessionGradeLevels = $j('#ct_session').find(':selected').data('grade_levels');
+        loadTimeslotsCount();
+        loadGradeLevels();
+        loadCourses();
+        loadSections();
+        loadUsers();
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    function loadGradeLevels() {
+      let html = '';
+      sessionGradeLevels.split(',').forEach(function(v, i, a) {
+        if (v != '') {
+          html += '<span>'
+                  + '<input type="checkbox" id="grade_level_'+i+'" value="'+v+'">'
+                  + '<label for="grade_level_'+i+'">'+v+'</label>'
+                + '</span>';
+        }
+      });
+      $j('#fieldset_gradelevels').html(html);
+    }
+
+    async function loadTimeslotsCount() {
+      timeslotsCount = await getPQ(
+        'com.psugasia.ptc5.sessions.single.timeslots.count', 
+        0, 
+        {
+          'sessionid':$j('#ct_session').val()
+        },
+        [
+          'cnt'
+        ],
+        true
+      );
+
+      if (parseInt(timeslotsCount.cnt) > 0)
+        $j('#span_existingtimeslots').show();
+      else
+        $j('#span_existingtimeslots').hide();
+    }
+
+    async function loadCourses() {
+      coursesList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.courses', 
+        0, 
+        {
+          'sessionid':$j('#ct_session').val()
+        },
+        [
+          'dcid',
+          'course_name',
+          'course_number'
+        ],
+        false
+      );
+
+      $j('#ct_courses').empty();
+      coursesList.forEach(function(v, i, a) {
+        $j('#ct_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+      });
+      
+      $j('#ct_courses').chosen({
+        no_results_text: "Oops, nothing found!"
+      });
+      $j("#ct_courses").trigger("chosen:updated");
+    }
+
+    async function loadSections() {
+      sectionsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.sections', 
+        0, 
+        {
+          'sessionid':$j('#ct_session').val()
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+
+      $j('#ct_sections').empty();
+      sectionsList.forEach(function(v, i, a) {
+        $j('#ct_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+      });
+      
+      $j('#ct_sections').chosen({
+        no_results_text: "Oops, nothing found!"
+      });
+      $j("#ct_sections").trigger("chosen:updated");
+    }
+
+    async function loadUsers() {
+      usersList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.users', 
+        0, 
+        {
+          'sessionid':$j('#ct_session').val()
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      $j('#ct_users').empty();
+      usersList.forEach(function(v, i, a) {
+        $j('#ct_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+      });
+      
+      $j('#ct_users').chosen({
+        no_results_text: "Oops, nothing found!"
+      });
+      $j("#ct_users").trigger("chosen:updated");
+    }
+
+    async function previewTimeslots() {
+      if (isMissingInput() || $j('#fieldset_gradelevels input:checked').length === 0 || $j('#fieldset_weekdays input:checked').length === 0) {
+        if ($j('#fieldset_gradelevels input:checked').length === 0)
+          $j('#fieldset_gradelevels input[type="checkbox"]').addClass('requiredInputMissing');
+        if ($j('#fieldset_weekdays input:checked').length === 0)
+          $j('#fieldset_weekdays input[type="checkbox"]').addClass('requiredInputMissing');
+        alert("Please fill in all required fields");
+        $j('.requiredInputMissing').first().focus();
+      }
+      else {
+        $j('#save_confirm').hide();
+        $j('#button_previewtimeslots').html('Generating...').prop('disabled', true);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        $j('#div_generatedtimeslots').empty();
+        $j('#error_notimeslots').hide();
+        $j('#div_save').hide();
+        $j('#button_savetimeslots').hide();
+
+        let days = [];
+        let currentDate = new Date($j('#ct_startdt').val());
+        let endDate = new Date($j('#ct_enddt').val());
+        let weekdays = $j('#fieldset_weekdays input:checked').map(function() {
+          return parseInt(this.value);
+        }).toArray();
+
+        while (currentDate <= endDate) {
+          if (weekdays.includes(currentDate.getDay())) {
+            days.push(new Date(currentDate.valueOf()));
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        let times = [];
+        let timeslotLength = parseInt($j('#ct_timeslotlength').val());
+        let passingTime = parseInt($j('#ct_passingtime').val());
+        let currentStartDateTime = new Date($j('#ct_startdt').val()+' '+$j('#ct_starttm').val());
+        let currentEndDateTime = new Date(currentStartDateTime.getTime() + (timeslotLength * 60 * 1000));
+        let endDateTime = new Date($j('#ct_startdt').val()+' '+$j('#ct_endtm').val());
+
+        while (currentEndDateTime <= endDateTime) {
+          times.push({start: new Date(currentStartDateTime.valueOf()), end: new Date(currentEndDateTime.valueOf())});
+          currentStartDateTime.setTime(currentEndDateTime.getTime() + (passingTime * 60 * 1000));
+          currentEndDateTime.setTime(currentStartDateTime.getTime() + (timeslotLength * 60 * 1000));
+        }
+
+        let createGradeLevels = $j('#fieldset_gradelevels input:checked').map(function() {
+          return parseInt(this.value);
+        }).toArray();
+        let gradeLevelsHTML = '';
+        sessionGradeLevels.split(',').forEach(function(gradeLevel) {
+          if (gradeLevel != '') {
+            gradeLevelsHTML += '<input type="checkbox" class="r_gradelevels" value="'+gradeLevel+'"'+(createGradeLevels.includes(parseInt(gradeLevel)) ? ' checked' : '')+'><label>'+gradeLevel+'</label> ';
+          }
+        });
+
+        let priorityOnlyHTML = '<select class="r_priorityonly">'
+                             + '<option value="1"'+(parseInt($j('#ct_priorityonly').val()) === 1 ? ' selected' : '')+'>Yes</option>'
+                             + '<option value="0"'+(parseInt($j('#ct_priorityonly').val()) === 0 ? ' selected' : '')+'>No</option>'
+                             + '</select>';
+
+        let adminOnlyHTML = '<select class="r_admin">'
+                          + '<option value="1"'+(parseInt($j('#ct_admin').val()) === 1 ? ' selected' : '')+'>Yes</option>'
+                          + '<option value="0"'+(parseInt($j('#ct_admin').val()) === 0 ? ' selected' : '')+'>No</option>'
+                          + '</select>';
+
+        let mustMeetHTML  = '<select class="r_mustmeet">'
+                          + '<option value="1"'+(parseInt($j('#ct_mustmeet').val()) === 1 ? ' selected' : '')+'>Yes</option>'
+                          + '<option value="0"'+(parseInt($j('#ct_mustmeet').val()) === 0 ? ' selected' : '')+'>No</option>'
+                          + '</select>';
+
+        let capacityHTML = '<input type="number" class="r_capacity" min="1" step="1" value="'+$j('#ct_capacity').val()+'" style="width: 40px;">';
+
+        let remarksHTML = '<textarea class="r_remarks" style="width: 200px; height: 1.5em;">'+$j('#ct_remarks').val()+'</textarea>';
+
+        let statusHTML = '<select class="r_status">'
+                       + '<option value="1"'+(parseInt($j('#ct_status').val()) === 1 ? ' selected' : '')+'>Enabled</option>'
+                       + '<option value="0"'+(parseInt($j('#ct_status').val()) === 0 ? ' selected' : '')+'>Disabled</option>'
+                       + '</select>';
+
+        let coursesHTML = '';
+        coursesList.forEach(function(v, i, a) {
+          coursesHTML += '<option value="'+v.dcid+'"'+($j('#ct_courses').val().includes(v.dcid) ? ' selected' : '')+'>'+v.course_name+' ('+v.course_number+')</option>';
+        });
+        coursesHTML = '<select class="r_courses" multiple data-placeholder=" ">'+coursesHTML+'</select>';
+
+        let sectionsHTML = '';
+        sectionsList.forEach(function(v, i, a) {
+          sectionsHTML += '<option value="'+v.dcid+'"'+($j('#ct_sections').val().includes(v.dcid) ? ' selected' : '')+'>'+v.section_number+' ('+v.course_name+')</option>';
+        });
+        sectionsHTML = '<select class="r_sections" multiple data-placeholder=" ">'+sectionsHTML+'</select>';
+
+        let usersHTML = '';
+        usersList.forEach(function(v, i, a) {
+          usersHTML += '<option value="'+v.dcid+'"'+($j('#ct_users').val().includes(v.dcid) ? ' selected' : '')+'>'+v.lastfirst+'</option>';
+        });
+        usersHTML = '<select class="r_users" multiple data-placeholder=" ">'+usersHTML+'</select>';
+
+        let timeslotIndex = 1;
+        days.forEach(function(day) {
+          let dayHTML = '<table class="grid timeslotday">'
+                        + '<thead>'
+                          + '<tr>'
+                            + '<th>Timeslot Details</th>'
+                            + '<th></th>'
+                          + '</tr>'
+                        + '</thead>'
+                        + '<tbody data-date="'+$j.datepicker.formatDate('yy-mm-dd', day)+'">';
+          times.forEach(function(time) {
+            dayHTML += '<tr data-timeslotindex="'+timeslotIndex+'">'
+                      + '<td>'
+                        + '<div class="timeslotGrid">'
+                          + '<div style="grid-area: starttm;"><label>Start Time: </label><input type="time" class="r_starttm" value="'+time.start.toLocaleTimeString('en-us', {hour12:false, hour:'2-digit', minute:'2-digit'})+'"></div>'
+                          + '<div style="grid-area: endtm;"><label>End Time: </label><input type="time" class="r_endtm" value="'+time.end.toLocaleTimeString('en-us', {hour12:false, hour:'2-digit', minute:'2-digit'})+'"></div>'
+                          + '<div style="grid-area: gradelevels;"><label>Grade Levels: </label>'+gradeLevelsHTML+'</div>'
+                          + '<div style="grid-area: priorityonly;"><label>Priority: </label>'+priorityOnlyHTML+'</div>'
+                          + '<div style="grid-area: adminonly;"><label>Admin: </label>'+adminOnlyHTML+'</div>'
+                          + '<div style="grid-area: mustmeet;"><label>Must Meet: </label>'+mustMeetHTML+'</div>'
+                          + '<div style="grid-area: capacity;"><label>Capacity: </label>'+capacityHTML+'</div>'
+                          + '<div style="grid-area: remarks;"><label>Remarks: </label>'+remarksHTML+'</div>'
+                          + '<div style="grid-area: status;"><label>Status: </label>'+statusHTML+'</div>'
+                          + '<div style="grid-area: courses;"><label>Courses: </label>'+coursesHTML+'</div>'
+                          + '<div style="grid-area: sections;"><label>Sections: </label>'+sectionsHTML+'</div>'
+                          + '<div style="grid-area: users;"><label>Teachers: </label>'+usersHTML+'</div>'
+                        + '</div>'
+                      + '</td>'
+                      + '<td class="centered"><button type="button" onclick="deleteTimeslot('+timeslotIndex+')">Delete</button></td>'
+                    +'</tr>';
+            timeslotIndex++;
+          });
+
+          $j('#div_generatedtimeslots').append('<h2 class="toggle expanded">'+day.toLocaleDateString()+'</h2><div>'+dayHTML+'</tbody></table></div>');
+        });
+
+        $j('select.r_courses').chosen({
+          no_results_text: "Oops, nothing found!"
+        });
+        $j('select.r_sections').chosen({
+          no_results_text: "Oops, nothing found!"
+        });
+        $j('select.r_users').chosen({
+          no_results_text: "Oops, nothing found!"
+        });
+
+        if ($j('#div_generatedtimeslots table').length > 0) {
+          $j('#div_save').show();
+          $j('#button_savetimeslots').show();
+          $j('#button_previewtimeslots').html('Preview Timeslots').prop('disabled', false);
+        }
+        else {
+          $j('#button_previewtimeslots').html('Preview Timeslots').prop('disabled', false);
+          $j('#error_notimeslots').show();
+        }
+      }
+    }
+
+    function deleteTimeslot(timeslotIndex) {
+      if (confirm("Are you sure you want to remove this timeslot?"))
+        $j('tr[data-timeslotindex="'+timeslotIndex+'"]').remove();
+    }
+
+    async function saveTimeslots() {
+      $j('#button_savetimeslots').html('Saving...').prop('disabled', true);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      $j('#save_confirm').hide();
+      $j('#save_error').hide();
+      let failed = false;
+      let records = [];
+      let scheduledCalls = 0;
+      let finishedCalls = 0;
+
+      $j('#div_generatedtimeslots table.timeslotday tbody').each(function(k,dateTable) {
+        let timeslotDate = $j(dateTable).data('date');
+        $j('tr', dateTable).each(function(k,row) {
+          let fields = {};
+          fields['u_ptc5_sessionsid'] = String($j('#ct_session').val());
+          fields['startdt'] = timeslotDate+'T'+$j('input.r_starttm', row).val();
+          fields['enddt'] = timeslotDate+'T'+$j('input.r_endtm', row).val();
+          let timeslotGradeLevels = '';
+          if ($j('input.r_gradelevels:checked', row).length > 0) {
+            timeslotGradeLevels = ','+$j('input.r_gradelevels:checked', row).map(function() {
+              return parseInt(this.value);
+            }).get().join(',')+',';
+          }
+          fields['grade_levels'] = timeslotGradeLevels;
+          fields['priorityonly'] = String($j('select.r_priorityonly', row).val());
+          fields['admin'] = String($j('select.r_admin', row).val());
+          fields['mustmeet'] = String($j('select.r_mustmeet', row).val());
+          fields['capacity'] = String($j('input.r_capacity', row).val());
+          fields['status'] = String($j('select.r_status', row).val());
+          fields['remarks'] = String($j('textarea.r_remarks', row).val());
+
+          records.push({
+            url: "/ws/schema/table/u_ptc5_timeslots",
+            method: "POST",
+            data: {"tables": {"u_ptc5_timeslots": fields}},
+            courses: $j('select.r_courses', row).val(),
+            sections: $j('select.r_sections', row).val(),
+            users: $j('select.r_users', row).val()
+          });
+
+          scheduledCalls = scheduledCalls + 1 + $j('select.r_courses', row).val().length + $j('select.r_sections', row).val().length + $j('select.r_users', row).val().length;
+        });
+      });
+
+      //console.log(records);
+
+      if (records.length > 0) {
+        records.forEach(async function(record) {
+          let api = await fetch(record.url, {
+            method: record.method,
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(record.data)
+          });
+          const response = await api.json();
+          finishedCalls++;
+          checkFinished(scheduledCalls, finishedCalls, failed);
+
+          if (response?.result[0]?.status == 'SUCCESS') {
+            let timeslotID = String(response?.result[0]?.success_message?.id);
+            
+            if (record.courses.length > 0) {
+              record.courses.forEach(async function(course) {
+                let api2 = await fetch("/ws/schema/table/u_ptc5_timeslots_courses", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    "tables": {
+                      "u_ptc5_timeslots_courses": {
+                        "u_ptc5_timeslotsid": timeslotID,
+                        "coursedcid": course
+                      }
+                    }
+                  })
+                });
+                const response2 = await api2.json();
+                finishedCalls++;
+                if (response2?.result[0]?.status != 'SUCCESS') {
+                  failed = true;
+                }
+                checkFinished(scheduledCalls, finishedCalls, failed);
+              });
+            }
+
+            if (record.sections.length > 0) {
+              record.sections.forEach(async function(section) {
+                let api2 = await fetch("/ws/schema/table/u_ptc5_timeslots_sections", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    "tables": {
+                      "u_ptc5_timeslots_sections": {
+                        "u_ptc5_timeslotsid": timeslotID,
+                        "sectiondcid": section
+                      }
+                    }
+                  })
+                });
+                const response2 = await api2.json();
+                finishedCalls++;
+                if (response2?.result[0]?.status != 'SUCCESS') {
+                  failed = true;
+                }
+                checkFinished(scheduledCalls, finishedCalls, failed);
+              });
+            }
+
+            if (record.users.length > 0) {
+              record.users.forEach(async function(user) {
+                let api2 = await fetch("/ws/schema/table/u_ptc5_timeslots_schoolstaff", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    "tables": {
+                      "u_ptc5_timeslots_schoolstaff": {
+                        "u_ptc5_timeslotsid": timeslotID,
+                        "schoolstaffdcid": user
+                      }
+                    }
+                  })
+                });
+                const response2 = await api2.json();
+                finishedCalls++;
+                if (response2?.result[0]?.status != 'SUCCESS') {
+                  failed = true;
+                }
+                checkFinished(scheduledCalls, finishedCalls, failed);
+              });
+            }
+          }
+          else {
+            failed = true;
+            checkFinished(scheduledCalls, finishedCalls, failed);
+          }
+        });
+      }
+    }
+
+    function checkFinished(scheduledCalls, finishedCalls, failed) {
+      if (finishedCalls >= scheduledCalls) {
+        $j('#button_savetimeslots').html('Save Timeslots').prop('disabled', false);
+        if (!failed) {
+          $j('#save_confirm').show();
+          $j('#button_savetimeslots').hide();
+        }
+        else
+          $j('#save_error').hide();
+      }
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    .timeslotGrid {
+      display: grid;
+      grid-template-columns: auto;
+      grid-template-rows: auto;
+      grid-template-areas:
+        "starttm endtm gradelevels priorityonly adminonly mustmeet capacity remarks status"
+        "courses courses courses sections sections sections sections users users";
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Create Timeslots
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Create Timeslots</h1> 
+<!-- start of content area --> 
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+    <fieldset>
+      <div>
+        <label for="ct_session">Session</label>
+        <select id="ct_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+        <span class="feedback-alert" id="span_existingtimeslots" style="display: none; margin-top: 10px;">
+          There are existing timeslots in this session.  New timeslots created via page will be added to the existing list.  If you want to replace the existing timeslots, please <a href="timeslots_delete.html">delete them</a> first.
+        </span>
+      </div>
+      <div>
+        <label for="ct_startdt"><span class="requiredInput">Start Date</span></label>
+        <input id="ct_startdt" type="date" value="">
+      </div>
+      <div>
+        <label for="ct_enddt"><span class="requiredInput">End Date</span></label>
+        <input id="ct_enddt" type="date" value="">
+      </div>
+      <div>
+        <label>Include Weekdays<span style="color: red; font-weight: bold;">*</span> <button type="button" class="explanation" data-contentid="weekdays">?</button><button type="button" onclick="toggleCheckboxes('fieldset_weekdays')">Toggle</button></label>
+        <fieldset id="fieldset_weekdays" style="border: 0;">
+          <span>
+            <input type="checkbox" id="weekdays_0" value="0">
+            <label for="weekdays_0">Sun</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_1" value="1" checked>
+            <label for="weekdays_1">Mon</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_2" value="2" checked>
+            <label for="weekdays_2">Tue</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_3" value="3" checked>
+            <label for="weekdays_3">Wed</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_4" value="4" checked>
+            <label for="weekdays_4">Thu</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_5" value="5" checked>
+            <label for="weekdays_5">Fri</label>
+          </span>
+          <span>
+            <input type="checkbox" id="weekdays_6" value="6">
+            <label for="weekdays_6">Sat</label>
+          </span>
+        </fieldset>
+      </div>
+      <div>
+        <label for="ct_starttm"><span class="requiredInput">Start Time</span></label>
+        <input id="ct_starttm" type="time" value="">
+      </div>
+      <div>
+        <label for="ct_endtm"><span class="requiredInput">End Time</span></label>
+        <input id="ct_endtm" type="time" value="">
+      </div>
+      <div>
+        <label for="ct_timeslotlength"><span class="requiredInput">Timeslot Length</span> <button type="button" class="explanation" data-contentid="timeslotlength">?</button></label>
+        <input id="ct_timeslotlength" type="number" min="1" step="1" value="20" style="width: 50px;">
+      </div>
+      <div>
+        <label for="ct_passingtime"><span class="requiredInput">Passing Time</span> <button type="button" class="explanation" data-contentid="passingtime">?</button></label>
+        <input id="ct_passingtime" type="number" min="0" step="1" value="5" style="width: 50px;">
+      </div>
+      <div>
+        <label>Grade Levels<span style="color: red; font-weight: bold;">*</span> <button type="button" class="explanation" data-contentid="grade_levels">?</button><button type="button" onclick="toggleCheckboxes('fieldset_gradelevels')">Toggle</button></label>
+        <fieldset id="fieldset_gradelevels" style="border: 0;"></fieldset>
+      </div>
+      <div>
+        <label for="ct_priorityonly">Priority Only <button type="button" class="explanation" data-contentid="priorityonly">?</button></label>
+        <select id="ct_priorityonly">
+          <option value="1">Yes</option>
+          <option value="0" selected>No</option>
+        </select>
+      </div>
+      <div>
+        <label for="ct_admin">Admin Only <button type="button" class="explanation" data-contentid="admin">?</button></label>
+        <select id="ct_admin">
+          <option value="1">Yes</option>
+          <option value="0" selected>No</option>
+        </select>
+      </div>
+      <div>
+        <label for="ct_mustmeet">Must Meet Only <button type="button" class="explanation" data-contentid="mustmeet">?</button></label>
+        <select id="ct_mustmeet">
+          <option value="1">Yes</option>
+          <option value="0" selected>No</option>
+        </select>
+      </div>
+      <div>
+        <label for="ct_capacity"><span class="requiredInput">Capacity</span> <button type="button" class="explanation" data-contentid="capacity">?</button></label>
+        <input id="ct_capacity" type="number" min="1" step="1" value="1" style="width: 40px;">
+      </div>
+      <div>
+        <label for="ct_status">Status</label>
+        <select id="ct_status">
+          <option value="1" selected>Enabled</option>
+          <option value="0">Disabled</option>
+        </select>
+      </div>
+      <div>
+        <label for="ct_remarks">Remarks</label>
+        <textarea id="ct_remarks" style="width: 400px; height: 40px;"></textarea>
+      </div>
+      <div>
+        <label for="ct_courses">Limit by Courses <button type="button" class="explanation" data-contentid="courses">?</button></label>
+        <select id="ct_courses" multiple data-placeholder=" "></select>
+      </div>
+      <div>
+        <label for="ct_sections">Limit by Sections <button type="button" class="explanation" data-contentid="sections">?</button></label>
+        <select id="ct_sections" multiple data-placeholder=" "></select>
+      </div>
+      <div>
+        <label for="ct_users">Limit by Teachers <button type="button" class="explanation" data-contentid="users">?</button></label>
+        <select id="ct_users" multiple data-placeholder=" "></select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" onclick="previewTimeslots()" id="button_previewtimeslots">Preview Timeslots</button>
+    </div>
+
+    <div id="div_generatedtimeslots"></div>
+
+    <div id="error_notimeslots" class="feedback-error" style="display: none;">
+      The entered parameters did not generate any timeslots.
+    </div>
+
+    <div class="button-row" id="div_save" style="display: none;">
+      <button type="button" onclick="saveTimeslots()" id="button_savetimeslots">Save Timeslots</button>
+    </div>
+
+    <div class="feedback-error" id="save_error" style="display:none;">
+      There was a problem processing your request.  Please try again.
+    </div>
+
+    <div class="feedback-confirm" id="save_confirm" style="display:none;">
+      Timeslots created
+    </div>
+
+    <div id="explanation_grade_levels" style="display:none;">
+      Controls which which grade level students will be able to book the created timeslots.
+    </div>
+
+    <div id="explanation_weekdays" style="display:none;">
+      Specify which weekdays to include when creating timeslots.
+    </div>
+
+    <div id="explanation_priorityonly" style="display:none;">
+      Controls if the created timeslots can only be booked by priority students.
+    </div>
+
+    <div id="explanation_admin" style="display:none;">
+      Controls if the created timeslots can only be booked by /admin users (usually used for reserving timeslots you want to manually assign).
+    </div>
+
+    <div id="explanation_mustmeet" style="display:none;">
+      Controls if the created timeslots can only be booked Must Meet students.
+    </div>
+
+    <div id="explanation_capacity" style="display:none;">
+      Maximum number of students that can be booked into the created timeslots (usually used for student-lead conferences).
+    </div>
+
+    <div id="explanation_courses" style="display:none;">
+      Only allow the created timeslots to be booked by students enrolled in the selected courses.  Only active courses in the selected session's school and year will be shown.
+      <br><br>
+      Leave blank if you do not want to limit by courses.
+    </div>
+
+    <div id="explanation_sections" style="display:none;">
+      Only allow the created timeslots to be booked by students enrolled in the selected sections.  Only sections in the selected session's school and terms will be shown.
+      <br><br>
+      Leave blank if you do not want to limit by sections.
+    </div>
+
+    <div id="explanation_users" style="display:none;">
+      Only allow the created timeslots to be booked by students enrolled in sections taught by the selected teachers.  Only users in the selected session's school with staff type "Teacher" or "Substitute" will be shown.
+      <br><br>
+      Leave blank if you do not want to limit by teachers.
+    </div>
+
+    <div id="explanation_timeslotlength" style="display:none;">
+      Length of each timeslot in minutes.  If you have timeslots with different lengths, you must create them in separate batches.
+    </div>
+
+    <div id="explanation_passingtime" style="display:none;">
+      Number of minutes to insert between each timeslot.
+    </div>
+
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

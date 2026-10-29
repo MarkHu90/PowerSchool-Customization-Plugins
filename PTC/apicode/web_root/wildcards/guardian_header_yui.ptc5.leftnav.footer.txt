@@ -1,0 +1,6 @@
+<style>
+  #btn-ptc5 {background-image: url("/images/icon-psugasia-ptc5.png"); background-size: 32px 32px;}
+</style>
+<script>
+  $j("#nav-main ul").first().append('<li id="btn-ptc5" role="menuitem"><a href="/guardian/ptc5_bookings.html">~[text:psx.htmlc.guardian.psugasia_ptc5.title]</a></li>');
+</script>

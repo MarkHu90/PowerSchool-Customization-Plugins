@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Not Booked Must Meets</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let dTable;
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+    const dTableID = 'table_report';
+    let dTableColumns = [];
+
+    async function updateSession() {
+      if ($j('#sr_session').val()) {
+        $j('#button_search').html('Getting data...').prop('disabled', true);
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        $j('#button_search').html('Search').prop('disabled', false);
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function getDTableData(recordID = '-1') {
+      let records = await getPQ(
+        'com.psugasia.ptc5.reports.notbookedmustmeets', 
+        0, 
+        {
+          sessionid: sessionID
+        },
+        [
+          'studentid',
+          'studentdcid',
+          'lastfirst',
+          'student_number',
+          'grade_level',
+          'home_room',
+          'parents',
+          'course_name',
+          'section_number',
+          'teacher',
+          'sectiondcid'
+        ],
+        false
+      );
+
+      let bookings = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/adminsignups.php', 
+        {
+          a: licenceKey,
+          b: sessionID,
+          h: 'mustmeets'
+        },
+        [
+          'studentdcid',
+          'sectiondcid'
+        ],
+        false
+      );
+
+      bookings.forEach(function(booking) {
+        let i = records.findIndex((e) => parseInt(e.studentdcid) === parseInt(booking.studentdcid) && parseInt(e.sectiondcid) === parseInt(booking.sectiondcid))
+        if (i !== -1)
+          records.splice(i, 1);
+      });
+
+      //console.log(students);
+
+      return records;
+    }
+
+    function showDTable() {
+      if (isMissingInput()) {
+        alert("Please fill in all required fields");
+        $j('.requiredInputMissing').first().focus();
+        return;
+      }
+
+      $j('#div_dtable').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      dTableColumns = [
+        { name: "lastfirst", title: "Student", data: 'lastfirst', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<a href="/admin/students/home.html?frn=001'+row.studentdcid+'&gs=true" target="_blank">'+data+'</a>';
+          else
+            return data;
+        } },
+        { name: "student_number", title: "Student Number", data: 'student_number' },
+        { name: "grade_level", title: "Grade Level", data: 'grade_level' },
+        { name: "home_room", title: "Homeroom", data: 'home_room' },
+        { name: "parents", title: "Parents", data: 'parents' },
+        { name: "course_name", title: "Course", data: 'course_name' },
+        { name: "section_number", title: "Section", data: 'section_number' },
+        { name: "teacher", title: "Teacher", data: 'teacher' },
+      ];
+
+      dTable = new DataTable('#'+dTableID, {
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { text: 'Make Current Selection', action: function(e, dt, node, config) {
+            loadingDialog();
+            let studentIDs = [];
+            dt.data().each(function(d) {
+              if (!studentIDs.includes(d.studentid))
+                studentIDs.push(d.studentid);
+            });
+
+            let data = JSON.stringify({
+                filters: [{
+                    filterName: "selected_by_hand",
+                    messageKey: "psx.js.angular.staffsearch_component.selected_by_hand__",
+                    clearSelection: false,
+                    op: "set",
+                    ids: "["+studentIDs.join(',')+"]",
+                    valueForDisplay: 3
+                }],
+                page: 1,
+                pageSize: 100,
+                fields: null,
+                includeRemote: false,
+                isScheduler: false
+            });
+
+            $j.ajax({
+              method: "post",
+              url: "/ws/selectionservice/currentselection/student?_"+Date.now(),
+              data: data,
+              contentType: "application/json",
+              dataType: "json",
+              success: function() {
+                closeLoading();
+                window.open("/admin/home.html");
+              }
+            });
+          } },
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        }
+      });
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'lastfirst':
+            case 'student_number':
+            case 'parents':
+            case 'section_number':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'grade_level':
+            case 'home_room':
+            case 'course_name':
+            case 'teacher':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+          }
+        });
+      }
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Not Booked Must Meets
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Not Booked Must Meets</h1> 
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+    <div class="feedback-info">
+      This report finds sections/enrollments marked as Must Meet but have not been booked.
+    </div>
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" id="button_search" onclick="showDTable()">Search</button>
+    </div>
+
+    <div class="box-round" id="div_dtable" style="padding: 10px; display: none;">
+      <table class="display compact" id="table_report">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Student Number</th>
+            <th>Grade Level</th>
+            <th>Homeroom</th>
+            <th>Parents</th>
+            <th>Course</th>
+            <th>Section</th>
+            <th>Teacher</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

@@ -1,0 +1,67 @@
+[
+~[tlist_sql;
+select
+s.first_name,
+e.dcid as sectiondcid,
+c.course_name,
+e.course_number||'.'||e.section_number as section_number,
+nvl(t2.dcid, t.dcid) as schoolstaffdcid,
+nvl(t2.lastfirst, t.lastfirst) as teacher,
+nvl(ssp.room,e.room) as room,
+ssp.onlineurl,
+pmme.id as pmmeid,
+pmme.message,
+pmm.id as pmmid,
+pmm.teachermessage
+
+from students s
+inner join cc d on s.id = d.studentid
+inner join sections e on d.sectionid = e.id
+inner join courses c on e.course_number = c.course_number
+inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+inner join teachers t on e.teacher = t.id
+left outer join u_courses_ptc5 cp on c.dcid = cp.coursesdcid
+left outer join u_sections_ptc5 ep on e.dcid = ep.sectionsdcid
+left outer join u_ptc5_cc pd on d.id = pd.ccid and pd.u_ptc5_sessionsid = '~(gpv.f)'
+left outer join teachers t2 on pd.schoolstaffdcid = t2.dcid
+left outer join u_students_ptc5 sp on s.dcid = sp.studentsdcid
+left outer join u_schoolstaff_ptc5 ssp on nvl(t2.dcid,t.dcid) = ssp.schoolstaffdcid
+left outer join u_ptc_mustmeetsections pmme on e.dcid = pmme.sectiondcid and pmme.u_ptc5_sessionsid = '~(gpv.f)'
+left outer join u_ptc_mustmeet pmm on d.id = pmm.ccid and pmm.u_ptc5_sessionsid = '~(gpv.f)'
+
+where
+s.dcid = '~(gpv.c)'
+and e.schoolid = '~(gpv.a)'
+and r.dcid in (~(gpv.e))
+and nvl(cp.excluded,0) = 0
+and nvl(ep.excluded,0) = 0
+and nvl(ssp.excluded,0) = 0
+and (
+  '~(gpv.g)' = '0'
+  or
+  (
+    '~(gpv.g)' = '1'
+    and 
+    nvl(sp.priorityonly,0) = 1
+  )
+)
+
+order by c.course_name, e.course_number, e.section_number
+;]
+  {
+    "first_name":"~(first_name;json)",
+    "sectiondcid":"~(sectiondcid;json)",
+    "course_name":"~(course_name;json)",
+    "section_number":"~(section_number;json)",
+    "schoolstaffdcid":"~(schoolstaffdcid;json)",
+    "teacher":"~(teacher;json)",
+    "room":"~(room;json)",
+    "onlineurl":"~(onlineurl;json)",
+    "pmmeid":"~(pmmeid;json)",
+    "message":"~(message;json)",
+    "pmmid":"~(pmmid;json)",
+    "teachermessage":"~(teachermessage;json)"
+  },
+[/tlist_sql]
+  {}
+]

@@ -1,0 +1,3 @@
+<script>
+  $j("#nav-main ul").first().append('<li id="btn-navPSUGAsiaPTC5" ~[if.~[gpv:tabname]=psugasiaptc5]class="selected"[/if]><a href="/teachers/ptc5/home.html" id="navPSUGAsiaPTC5" title="PTC">PTC</a></li>');
+</script>

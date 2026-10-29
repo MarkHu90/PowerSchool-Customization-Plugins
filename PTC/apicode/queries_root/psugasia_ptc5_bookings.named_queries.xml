@@ -1,0 +1,25 @@
+<queries>
+  <query name="com.psugasia.ptc5.bookings.single" flattened="true">
+    <args>
+      <arg name="bookingids" type="array" required="true" />
+    </args>
+    <columns>
+      <column column="u_ptc5_bookingremarks.id">result.id</column>
+      <column column="u_ptc5_bookingremarks.bookingid">result.bookingid</column>
+      <column column="u_ptc5_bookingremarks.remarks">result.remarks</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+id,
+bookingid,
+remarks
+
+from u_ptc5_bookingremarks
+
+where
+bookingid in (:bookingids)
+]]>
+    </sql>
+  </query>
+</queries>

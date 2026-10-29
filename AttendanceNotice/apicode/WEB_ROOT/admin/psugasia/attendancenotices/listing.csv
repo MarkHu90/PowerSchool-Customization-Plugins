@@ -1,0 +1,34 @@
+"U_ATTENDANCENOTICES_REQUESTS ID","Student Name","Student Number","Date From","To","Time From","To","All Day","Personal Leave","Principal Approved","Reason","Remarks","Rejected","Requested By","When","Processed","By","When","Last Updated"
+~[tlist_sql;
+  select
+  uanr.id,
+  s.lastfirst,
+  s.student_number,
+  uanr.date_start,
+  uanr.date_end,
+  uanr.time_start,
+  uanr.time_end,
+  decode(nvl(uanr.allday,0),1,'Y','N') as allday,
+  decode(nvl(uanr.personal_leave,0),1,'Y','N') as personal_leave,
+  decode(nvl(uanr.principal_approved,0),1,'Y','N') as principal_approved,
+  uanr.reason,
+  uanr.remarks,
+  decode(nvl(uanr.rejected,0),1,'Y','N') as rejected,
+  uanr.whocreated,
+  uanr.whencreated,
+  decode(nvl(uanr.processed,0),1,'Y','N') as processed,
+  uanr.processed_by,
+  uanr.processed_when,
+  nvl(uanr.whenmodified,uanr.whencreated) as lastupdated
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+  inner join students s on uanr.studentsdcid = s.dcid
+
+  where
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+
+  order by s.lastfirst, uanr.date_start, uanr.time_start
+;]"~(id)","~(lastfirst)","~(student_number)","~(date_start)","~(date_end)","~(time_start)","~(time_end)","~(allday)","~(personal_leave)","~(principal_approved)","~(reason)","~(remarks)","~(rejected)","~(whocreated)","~(whencreated)","~(processed)","~(processed_by)","~(processed_when)","~(lastupdated)"
+[/tlist_sql]

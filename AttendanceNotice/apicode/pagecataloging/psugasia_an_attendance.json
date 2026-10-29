@@ -1,0 +1,71 @@
+{
+  "pages": [
+		{
+			"htmlID": "PSUGAsiaANAttendanceAttendanceNotices",
+			"title": "Attendance Notices",
+			"version": "2.0.0.0",
+			"contextType": "main",
+			"sortOrder": 99999,
+			"pageURL": null,
+			"districtLevelContext": 1,
+			"parentHTMLID": "navAttendanceSection",
+			"children": [
+				{
+					"htmlID": "PSUGAsiaANAttendanceAttendanceNoticesSettings",
+					"title": "Settings",
+					"version": "2.0.0.0",
+					"contextType": "main",
+					"sortOrder": 10,
+					"pageURL": "/admin/psugasia/attendancenotices/settings.html",
+					"parentHTMLID": "PSUGAsiaANAttendanceAttendanceNotices",
+					"districtLevelContext": 1
+				},
+				{
+					"htmlID": "PSUGAsiaANAttendanceAttendanceNoticesCalendar",
+					"title": "Calendar",
+					"version": "2.0.0.0",
+					"contextType": "main",
+					"sortOrder": 20,
+					"pageURL": "/admin/psugasia/attendancenotices/calendar.html",
+					"parentHTMLID": "PSUGAsiaANAttendanceAttendanceNotices",
+					"districtLevelContext": 1,
+					"isLandingPage": true,
+					"children": [
+						{
+							"htmlID": "PSUGAsiaANAttendanceAttendanceNoticesCalendarMeeting",
+							"title": "Process Attendance Notice",
+							"version": "2.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/attendancenotices/calendar_process_meeting.html",
+							"originalParentUrl": "/admin/psugasia/attendancenotices/calendar.html",
+							"districtLevelContext": 1,
+							"parentHTMLID": "PSUGAsiaANAttendanceAttendanceNoticesCalendar"
+						},
+						{
+							"htmlID": "PSUGAsiaANAttendanceAttendanceNoticesCalendarDaily",
+							"title": "Process Attendance Notice",
+							"version": "2.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/attendancenotices/calendar_process_daily.html",
+							"originalParentUrl": "/admin/psugasia/attendancenotices/calendar.html",
+							"districtLevelContext": 1,
+							"parentHTMLID": "PSUGAsiaANAttendanceAttendanceNoticesCalendar"
+						}
+					]
+				},
+				{
+					"htmlID": "PSUGAsiaANAttendanceAttendanceNoticesListing",
+					"title": "Listing",
+					"version": "2.0.0.0",
+					"contextType": "main",
+					"sortOrder": 30,
+					"pageURL": "/admin/psugasia/attendancenotices/listing.html",
+					"parentHTMLID": "PSUGAsiaANAttendanceAttendanceNotices",
+					"districtLevelContext": 1
+				}
+			]
+		}
+  ]
+}

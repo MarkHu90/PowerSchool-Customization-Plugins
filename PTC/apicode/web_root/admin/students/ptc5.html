@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student PTC Settings</title>
+<!-- required scripts -->
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <script src="/scripts/dist/teacher_tools/components/shared/ckeditor/ckeditor.js"></script>
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    $j(function() {
+      CKEDITOR.replace('r_message', {
+        height: 200,
+        margin: 10
+      });
+
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    #cke_r_message {
+      margin: 10px;
+    }
+  </style>
+</head> 
+<body> 
+ ~[wc:admin_header_frame_css]
+ <!-- breadcrumb start -->
+ <a href="/admin/home.html" target="_top">Start Page</a> &gt; <a href="/admin/students/home.html?selectstudent=nosearch" target="_top">Student Selection</a> &gt; Student PTC Settings
+ <!-- breadcrumb end -->
+~[wc:admin_navigation_frame_css]
+~[wc:changes_saved_or_deleted_header]
+<!-- start of main menu and content -->
+~[wc:title_student_begin_css]Student PTC Settings~[wc:title_student_end_css]
+<form action="/~[self]~[if.gpv.recordSaved=]&recordSaved=1[/if]" method="POST">
+  <!-- start of content area -->
+  <div class="feedback-info">
+    Settings on this page apply to all PTC sessions.
+  </div>
+
+  <fieldset>
+    <div>
+      <label for="r_excluded">Excluded from PTC <button type="button" class="explanation" data-contentid="excluded">?</button></label>
+      <select id="r_excluded" name="[students.u_ptc5]excluded">
+        <option value=""></option>
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <div>
+      <label for="r_priorityonly">Is Priority Student <button type="button" class="explanation" data-contentid="priorityonly">?</button></label>
+      <select id="r_priorityonly" name="[students.u_ptc5]priorityonly">
+        <option value=""></option>
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <div>
+      <label for="r_message">Student Message <button type="button" class="explanation" data-contentid="message">?</button></label>
+      <textarea id="r_message" name="[students.u_ptc5]message"></textarea>
+    </div>
+  </fieldset>
+
+  <div class="button-row">
+    <input type="hidden" name="ac" value="prim">
+    ~[submitbutton]
+  </div>
+
+  <div id="explanation_excluded" style="display:none;">
+    Exclude this student from PTC.
+  </div>
+
+  <div id="explanation_priorityonly" style="display:none;">
+    Allow this student to make bookings during Priority Signup periods.
+  </div>
+
+  <div id="explanation_message" style="display:none;">
+    Message to show on this student's signup page.
+  </div>
+</form>
+<!-- end of content area -->
+  ~[wc:admin_footer_frame_css]
+</body> 
+</html>

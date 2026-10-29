@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Delete Timeslots</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/sortable/sortable.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/sortable/sortable.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    async function deleteRecords(e, sessionID) {
+      //console.log(sessionID);
+      if (confirm("Are you sure you want to delete all timeslots in this session?")) {
+        $j(e).html('Deleting...').prop('disabled', true);
+        let timeslotsList = await getPQ(
+          'com.psugasia.ptc5.timeslots.list', 
+          0, 
+          {
+            sessionid: sessionID,
+            coursedcid: '-1',
+            sectiondcid: '-1',
+            schoolstaffdcid: '-1',
+            daterange1: '',
+            daterange2: '',
+            status: '1',
+            timeslotid: '-1'
+          },
+          [
+            'id'
+          ],
+          false
+        );
+
+        let deleteIDs = [];
+        timeslotsList.forEach(function(timeslot) {
+          deleteIDs.push(timeslot.id)
+        });
+
+        let scheduledCalls = deleteIDs.length;
+        let finishedCalls = 0;
+
+        if (deleteIDs.length > 0) {
+          deleteIDs.forEach(async function(record) {
+            let api = await fetch('/ws/schema/table/u_ptc5_timeslots/'+record, {
+              method: 'DELETE'
+            });
+            if (api?.status == 204) {
+              finishedCalls++;
+              if (finishedCalls >= scheduledCalls) {
+                $j(e).closest('tr').find('td.recordscount').html('0');
+                $j(e).html('Delete').prop('disabled', false);
+              }
+            }
+          });
+        }
+        else
+          $j(e).html('Delete').prop('disabled', false);
+      }
+    }
+  </script>
+  <style>
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Delete Timeslots
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Delete Timeslots</h1> 
+<!-- start of content area --> 
+  <div class="feedback-info">
+    <ul>
+      <li>Use this page to delete all timeslots from a session.</li>
+      <li>Only showing active sessions from the selected year.</li>
+    </ul>
+  </div>
+
+  <div class="box-round">
+    <table class="grid sortable asc">
+      <thead>
+        <tr>
+          <th>Session</th>
+          <th>School</th>
+          <th>Priority Signup Period</th>
+          <th>General Signup Period</th>
+          <th>Number of Timeslots</th>
+          <th class="no-sort"></th>
+        </tr>
+      </thead>
+      <tbody>
+~[tlist_sql;
+select
+ps.name,
+h.name as school,
+case 
+  when ps.priority_open is not null then replace(ps.priority_open,'T',' ')||' - '||replace(ps.priority_close,'T',' ')
+  else ''
+end as priorityperiod,
+case 
+  when ps.general_open is not null then replace(ps.general_open,'T',' ')||' - '||replace(ps.general_close,'T',' ')
+  else ''
+end as generalperiod,
+count(pt.id) as recordscount,
+ps.id as sessionid
+
+from u_ptc5_sessions ps
+inner join schools h on ps.schoolid = h.school_number
+left outer join u_ptc5_timeslots pt on ps.id = pt.u_ptc5_sessionsid
+
+where
+nvl(ps.status,0) = 1
+and ps.yearid = '~(curyearid)'
+~[if#school.~(curschoolid)#0]and ps.schoolid = '~(curschoolid)'[/if#school]
+
+group by
+ps.name,
+h.name,
+ps.priority_open,
+ps.priority_close,
+ps.general_open,
+ps.general_close,
+ps.id
+
+order by ps.name, h.name, ps.priority_open, ps.general_open
+;nonemessage=<tr><td colspan="6">No records found</td></tr>;]
+        <tr>
+          <td>~(name)</td>
+          <td>~(school)</td>
+          <td>~(priorityperiod)</td>
+          <td>~(generalperiod)</td>
+          <td class="recordscount">~(recordscount)</td>
+          <td class="centered"><button type="button" onclick="deleteRecords(this, ~(sessionid))">Delete</button></td>
+        </tr>
+[/tlist_sql]
+      </tbody>
+    </table>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

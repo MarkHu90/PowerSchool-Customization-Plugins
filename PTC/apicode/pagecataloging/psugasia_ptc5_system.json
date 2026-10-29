@@ -1,0 +1,270 @@
+{
+  "pages": [
+		{
+			"htmlID": "PSUGAsiaPTC5System",
+			"title": "PTC",
+			"version": "5.0.0.0",
+			"contextType": "main",
+			"sortOrder": 99999,
+			"pageURL": null,
+			"districtLevelContext": 0,
+			"parentHTMLID": "navSystemManagementSection",
+			"children": [
+				{
+					"htmlID": "PSUGAsiaPTC5System_Signups",
+					"title": "Signups",
+					"version": "5.0.0.0",
+					"contextType": "main",
+					"sortOrder": 100,
+					"pageURL": null,
+					"districtLevelContext": 0,
+					"parentHTMLID": "PSUGAsiaPTC5",
+					"children": [
+						{
+							"htmlID": "PSUGAsiaPTC5System_ManageSignups",
+							"title": "Manage Signups",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/ptc5/signups_manage.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Signups"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_DeleteSignups",
+							"title": "Delete Signups",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/ptc5/signups_delete.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Signups"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_EmailParents",
+							"title": "Email Parents",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 30,
+							"pageURL": "/admin/psugasia/ptc5/emailparents.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Signups"
+						}
+					]
+				},
+				{
+					"htmlID": "PSUGAsiaPTC5System_Timeslots",
+					"title": "Timeslots",
+					"version": "5.0.0.0",
+					"contextType": "main",
+					"sortOrder": 200,
+					"pageURL": null,
+					"districtLevelContext": 0,
+					"parentHTMLID": "PSUGAsiaPTC5",
+					"children": [
+						{
+							"htmlID": "PSUGAsiaPTC5System_Timeslots_CreateTimeslots",
+							"title": "Create Timeslots",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/ptc5/timeslots_create.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Timeslots"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Timeslots_ManageTimeslotsList",
+							"title": "Manage Timeslots (List)",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/ptc5/timeslots_manage.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Timeslots"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Timeslots_ManageTimeslotsCalender",
+							"title": "Manage Timeslots (Calendar)",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 30,
+							"pageURL": "/admin/psugasia/ptc5/timeslots_calendar.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Timeslots"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Timeslots_BlockedTimeslots",
+							"title": "Blocked Timeslots",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 40,
+							"pageURL": "/admin/psugasia/ptc5/timeslots_blocked.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Timeslots"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Timeslots_DeleteTimeslots",
+							"title": "Delete Timeslots",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 50,
+							"pageURL": "/admin/psugasia/ptc5/timeslots_delete.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Timeslots"
+						}
+					]
+				},
+				{
+					"htmlID": "PSUGAsiaPTC5System_Exclusions",
+					"title": "Exclusions",
+					"version": "5.0.0.0",
+					"contextType": "main",
+					"sortOrder": 300,
+					"pageURL": null,
+					"districtLevelContext": 0,
+					"parentHTMLID": "PSUGAsiaPTC5",
+					"children": [
+						{
+							"htmlID": "PSUGAsiaPTC5System_Exclusions_ExcludedCourses",
+							"title": "Excluded Courses",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/ptc5/excluded_courses.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Exclusions"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Exclusions_ExcludedSections",
+							"title": "Excluded Sections",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/ptc5/excluded_sections.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Exclusions"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Exclusions_ExcludedStudents",
+							"title": "Excluded Students",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 30,
+							"pageURL": "/admin/psugasia/ptc5/excluded_students.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Exclusions"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Exclusions_ExcludedTeachers",
+							"title": "Excluded Teachers",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 40,
+							"pageURL": "/admin/psugasia/ptc5/excluded_schoolstaff.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Exclusions"
+						}
+					]
+				},
+				{
+					"htmlID": "PSUGAsiaPTC5System_MustMeet",
+					"title": "Must Meet",
+					"version": "5.0.0.0",
+					"contextType": "main",
+					"sortOrder": 400,
+					"pageURL": null,
+					"districtLevelContext": 0,
+					"parentHTMLID": "PSUGAsiaPTC5",
+					"children": [
+						{
+							"htmlID": "PSUGAsiaPTC5System_MustMeet_MustMeetStudentsList",
+							"title": "Must Meet Students List",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/ptc5/mustmeet_cc.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_MustMeet"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_MustMeet_MustMeetSections",
+							"title": "Must Meet Sections",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/ptc5/mustmeet_sections.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_MustMeet"
+						}
+					]
+				},
+				{
+					"htmlID": "PSUGAsiaPTC5System_Setup",
+					"title": "Setup",
+					"version": "5.0.0.0",
+					"contextType": "main",
+					"sortOrder": 500,
+					"pageURL": null,
+					"districtLevelContext": 0,
+					"parentHTMLID": "PSUGAsiaPTC5",
+					"children": [
+						{
+							"htmlID": "PSUGAsiaPTC5System_GeneralSettings",
+							"title": "General Settings",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 10,
+							"pageURL": "/admin/psugasia/ptc5/settings.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Setup"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_Sessions",
+							"title": "Sessions",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 20,
+							"pageURL": "/admin/psugasia/ptc5/sessions_list.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Setup",
+							"isLandingPage": true,
+							"children": [
+								{
+									"htmlID": "PSUGAsiaPTC5System_Sessions_Edit",
+									"title": "Edit Session",
+									"version": "5.0.0.0",
+									"contextType": "main",
+									"sortOrder": 10,
+									"pageURL": "/admin/psugasia/ptc5/sessions_edit.html",
+									"originalParentUrl": "/admin/psugasia/ptc5/sessions_list.html",
+									"districtLevelContext": 0,
+									"parentHTMLID": "PSUGAsiaPTC5System_Sessions"
+								}
+							]
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_MeetingTeacherOverrides",
+							"title": "Meeting Teacher Overrides",
+							"version": "5.0.0.0",
+							"contextType": "main",
+							"sortOrder": 30,
+							"pageURL": "/admin/psugasia/ptc5/cc.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Setup"
+						},
+						{
+							"htmlID": "PSUGAsiaPTC5System_TestingContacts",
+							"title": "Testing Contacts",
+							"version": "3.0.0.0",
+							"contextType": "main",
+							"sortOrder": 40,
+							"pageURL": "/admin/psugasia/ptc5/testingcontacts.html",
+							"districtLevelContext": 0,
+							"parentHTMLID": "PSUGAsiaPTC5System_Setup"
+						}
+					]
+				}
+			]
+		}
+  ]
+}

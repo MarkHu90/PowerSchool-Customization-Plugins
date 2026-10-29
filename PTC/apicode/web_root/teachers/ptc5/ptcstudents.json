@@ -1,0 +1,25 @@
+[
+~[tlist_sql;
+select distinct
+s.dcid,
+s.lastfirst,
+s.student_number,
+s.id
+
+from students s
+
+where
+s.enroll_status in (0,-1)
+and ('~(gpv.hid)' = '0' or s.schoolid = '~(gpv.hid)')
+
+order by s.lastfirst
+;]
+  {
+    "dcid":"~(dcid;json)",
+    "lastfirst":"~(lastfirst;json)",
+    "student_number":"~(student_number;json)",
+    "id":"~(id;json)"
+  },
+[/tlist_sql]
+  {}
+]

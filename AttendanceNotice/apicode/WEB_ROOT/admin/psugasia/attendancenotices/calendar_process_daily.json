@@ -1,0 +1,31 @@
+[
+~[tlist_sql;
+select
+rownum,
+s.id as studentid,
+cd.id as calendardayid,
+to_char(cd.date_value,'~[dateformat]') as date_value,
+to_char(cd.date_value,'YYYY-MM-DD') as apidate,
+yd.day_name,
+bs.name as bellschedule,
+a.attendance_codeid,
+a.att_comment
+
+from u_attendancenotices_requests uanr
+inner join students s on s.dcid = uanr.studentsdcid
+inner join calendar_day cd on cd.date_value between uanr.date_start and uanr.date_end and cd.schoolid = uanr.schoolid
+inner join terms y on cd.schoolid = y.schoolid and y.isyearrec = 1 and cd.date_value between y.firstday and y.lastday
+inner join bell_schedule bs on bs.id = cd.bell_schedule_id
+inner join cycle_day yd on cd.cycle_day_id = yd.id
+left outer join attendance a on s.id = a.studentid and cd.id = a.calendar_dayid and a.att_mode_code = 'ATT_ModeDaily'
+
+where
+uanr.id = '~(gpv.id)'
+and nvl(cd.insession,0) = 1
+and y.yearid = '~(curyearid)'
+
+order by cd.date_value
+;]
+  {"rownum":"~(rownum;json)","studentid":"~(studentid;json)","calendardayid":"~(calendardayid;json)","date_value":"~(date_value;json)","apidate":"~(apidate;json)","day_name":"~(day_name;json)","bellschedule":"~(bellschedule;json)","attendance_codeid":"~(attendance_codeid;json)","att_comment":"~(att_comment;json)"},
+[/tlist_sql]
+{}]

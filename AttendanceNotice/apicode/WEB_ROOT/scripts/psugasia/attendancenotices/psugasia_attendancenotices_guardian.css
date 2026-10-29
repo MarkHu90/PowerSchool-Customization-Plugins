@@ -1,0 +1,101 @@
+.feedback-confirm {
+	color: #3c763d;
+	background-color: #dff0d8;
+	background-image: url("/images/img/icon-check.svg");
+	border: 1px solid #3c763d;
+	padding: 2px 4px 2px 30px;
+	margin: 0 20px 5px;
+	border-radius: 4px;
+	background-position: 4px 4px;
+	background-repeat: no-repeat;
+	font-family: Arial,sans-serif;
+	font-size: 14px;
+	line-height: 1.5em;
+}
+
+.feedback-error {
+	color: #A94442;
+	background-color: #F2DEDE;
+	background-image: url("/images/img/icon-error.svg");
+	border: 1px solid #A94442;
+	padding: 2px 4px 2px 30px;
+	margin: 0 20px 5px;
+	border-radius: 4px;
+	background-position: 4px 4px;
+	background-repeat: no-repeat;
+	font-family: Arial,sans-serif;
+	font-size: 14px;
+	line-height: 1.5em;
+}
+
+table.grid td.feedback-caution, .feedback-confirm, .feedback-caution, .feedback-alert, .feedback-error, .feedback-note, .feedback-info, .pslogin .error {
+
+}
+
+.attendanceNotice {background-color: orange !important; color: black !important; padding:2px;}
+.attendanceNoticeProcessed {background-color: #7CFC00 !important; color: black !important; padding:2px;}
+.attendanceNoticeRejected {background-color: red !important; color: white !important; padding:2px;}
+
+.myfc-event {background-color: white !important; color:black !important;}
+.fc-day-grid-event {
+	margin: 1px 2px 0;
+	padding: 2px 2px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 17px;
+}
+
+.switch input {display:none;}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 13px;
+  width: 13px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(13px);
+  -ms-transform: translateX(13px);
+  transform: translateX(13px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.bold {font-weight: bold;}

@@ -1,0 +1,38 @@
+<queries>
+  <query name="com.psugasia.ptc5.settings" flattened="true">
+    <columns>
+      <column column="u_ptc5_settings.id">result.id</column>
+      <column column="u_ptc5_settings.licensekey">result.licensekey</column>
+      <column column="u_ptc5_settings.timezone_code">result.timezone_code</column>
+      <column column="u_ptc5_settings.timezone_ics">result.timezone_ics</column>
+      <column column="u_ptc5_settings.smtp_server">result.smtp_server</column>
+      <column column="u_ptc5_settings.smtp_username">result.smtp_username</column>
+      <column column="u_ptc5_settings.smtp_password">result.smtp_password</column>
+      <column column="u_ptc5_settings.email_from">result.email_from</column>
+      <column column="u_ptc5_settings.email_cc">result.email_cc</column>
+      <column column="u_ptc5_settings.email_bcc">result.email_bcc</column>
+      <column column="u_ptc5_settings.parentmessage">result.parentmessage</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+id,
+licensekey,
+timezone_code,
+timezone_ics,
+smtp_server,
+smtp_username,
+smtp_password,
+email_from,
+email_cc,
+email_bcc,
+parentmessage
+
+from u_ptc5_settings
+
+where
+rownum = 1
+]]>
+    </sql>
+  </query>
+</queries>

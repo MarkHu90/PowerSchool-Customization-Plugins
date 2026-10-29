@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teachers List</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const curSchoolID = '~(curschoolid)';
+    let dTable;
+    const dTableID = 'table_report';
+    let dTableColumns = [];
+
+    async function getDTableData(recordID = '-1') {
+      let records = await getPQ(
+        'com.psugasia.ptc5.reports.teacherslist', 
+        0, 
+        {
+          schoolid: curSchoolID
+        },
+        [
+          'teacherid',
+          'teacherdcid',
+          'lastfirst',
+          'teachernumber',
+          'title',
+          'staffstatus',
+          'excluded',
+          'room',
+          'onlineurl',
+          'abbreviation'
+        ],
+        false
+      );
+      //console.log(records);
+
+      return records;
+    }
+
+    function showDTable() {
+      if (isMissingInput()) {
+        alert("Please fill in all required fields");
+        $j('.requiredInputMissing').first().focus();
+        return;
+      }
+
+      $j('#div_dtable').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      dTableColumns = [
+        { name: "abbreviation", title: "School", data: 'abbreviation' },
+        { name: "lastfirst", title: "Teacher", data: 'lastfirst', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<a href="/admin/faculty/home.html?frn=005'+row.teacherdcid+'&gs=true" target="_blank">'+data+'</a>';
+          else
+            return data;
+        } },
+        { name: "teachernumber", title: "Teacher Number", data: 'teachernumber' },
+        { name: "title", title: "Title", data: 'title' },
+        { name: "staffstatus", title: "Staff Type", data: 'staffstatus', render: function ( data, type, row ) {
+          if (parseInt(data) === 0) return 'Not Assigned';
+          else if (parseInt(data) === 1) return 'Teacher';
+          else if (parseInt(data) === 2) return 'Staff';
+          else if (parseInt(data) === 3) return 'Lunch Staff';
+          else if (parseInt(data) === 4) return 'Substitute';
+          else return '';
+        } },
+        { name: "excluded", title: "Excluded", data: 'excluded', render: function ( data, type, row ) {
+          return (parseInt(data) === 1 ? 'Y' : '');
+        } },
+        { name: "room", title: "Location", data: 'room' },
+        { name: "onlineurl", title: "Meeting URL", data: 'onlineurl' }
+      ];
+
+      dTable = new DataTable('#'+dTableID, {
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { text: 'Make Current Selection', action: function(e, dt, node, config) {
+            loadingDialog();
+            let teacherIDs = [];
+            dt.data().each(function(d) {
+              if (!teacherIDs.includes(d.teacherid))
+                teacherIDs.push(d.teacherid);
+            });
+
+            let data = JSON.stringify({
+                filters: [{
+                    filterName: "selected_by_hand",
+                    messageKey: "psx.js.angular.staffsearch_component.selected_by_hand__",
+                    clearSelection: false,
+                    op: "set",
+                    ids: "["+teacherIDs.join(',')+"]",
+                    valueForDisplay: 3
+                }],
+                page: 1,
+                pageSize: 100
+            });
+
+            $j.ajax({
+              method: "post",
+              url: "/ws/selectionservice/currentselection/teacher?_"+Date.now(),
+              data: data,
+              contentType: "application/json",
+              dataType: "json",
+              success: function() {
+                closeLoading();
+                window.open("/admin/home.html?searchtype=staff");
+              }
+            });
+          } },
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc'], [1, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        }
+      });
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'lastfirst':
+            case 'teachernumber':
+            case 'title':
+            case 'room':
+            case 'onlineurl':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'staffstatus':
+            case 'excluded':
+            case 'abbreviation':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+          }
+        });
+      }
+    }
+
+    $j(function() {
+      showDTable();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Teachers List
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Teachers List</h1> 
+<!-- start of content area --> 
+
+  <div class="feedback-info">
+    <ul>
+      <li>This report shows all PTC related teacher fields (excluded, location and meeting URL) in a single page.</li>
+      <li>Teachers with no PTC related information will not be shown.</li>
+    </ul>
+  </div>
+
+  <div class="box-round" id="div_dtable" style="padding: 10px; display: none;">
+    <table class="display compact" id="table_report">
+      <thead>
+        <tr>
+          <th>School</th>
+          <th>Teacher</th>
+          <th>Teacher Number</th>
+          <th>Title</th>
+          <th>Staff Type</th>
+          <th>Excluded</th>
+          <th>Location</th>
+          <th>Meeting URL</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

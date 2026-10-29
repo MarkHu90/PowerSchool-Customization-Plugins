@@ -1,0 +1,24 @@
+[
+~[tlist_sql;
+select
+pts.id,
+pts.sectiondcid,
+e.course_number||'.'||e.section_number as section_number,
+c.course_name
+
+from u_ptc5_timeslots_sections pts
+inner join sections e on pts.sectiondcid = e.dcid
+inner join courses c on e.course_number = c.course_number
+
+where
+pts.u_ptc5_timeslotsid = '~(gpv.timeslotid)'
+;]
+  {
+    "id":"~(id;json)",
+    "sectiondcid":"~(sectiondcid;json)",
+    "section_number":"~(section_number;json)",
+    "course_name":"~(course_name;json)"
+  },
+[/tlist_sql]
+  {}
+]

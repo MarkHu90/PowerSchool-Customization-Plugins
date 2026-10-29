@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Timeslots (List View)</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let coursesList = [];
+    let sectionsList = [];
+    let usersList = [];
+    let dTable;
+    const dTableID = 'table_timeslots';
+    let dTableColumns = [];
+
+    function updateSession() {
+      if ($j('#sr_session').val()) {
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        loadCourses();
+        loadSections();
+        loadUsers();
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadCourses() {
+      coursesList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.courses', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'course_number'
+        ],
+        false
+      );
+
+      $j('#sr_courses').empty();
+      $j('#r_courses').empty();
+      $j('#sr_courses').append('<option value="-1"></option>');
+      coursesList.forEach(function(v, i, a) {
+        $j('#sr_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+        $j('#r_courses').append('<option value="'+v.dcid+'">'+v.course_name+' ('+v.course_number+')</option>');
+      });
+    }
+
+    async function loadSections() {
+      sectionsList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.sections', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+
+      $j('#sr_sections').empty();
+      $j('#r_sections').empty();
+      $j('#sr_sections').append('<option value="-1"></option>');
+      sectionsList.forEach(function(v, i, a) {
+        $j('#sr_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+        $j('#r_sections').append('<option value="'+v.dcid+'">'+v.section_number+' ('+v.course_name+')</option>');
+      });
+    }
+
+    async function loadUsers() {
+      usersList = await getPQ(
+        'com.psugasia.ptc5.sessions.single.users', 
+        0, 
+        {
+          'sessionid': sessionID
+        },
+        [
+          'dcid',
+          'lastfirst'
+        ],
+        false
+      );
+
+      $j('#sr_users').empty();
+      $j('#r_users').empty();
+      $j('#sr_users').append('<option value="-1"></option>');
+      usersList.forEach(function(v, i, a) {
+        $j('#sr_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+        $j('#r_users').append('<option value="'+v.dcid+'">'+v.lastfirst+'</option>');
+      });
+    }
+
+    async function getDTableData(recordID = '-1') {
+      return await getPQ(
+        'com.psugasia.ptc5.timeslots.list', 
+        0, 
+        {
+          sessionid: sessionID,
+          coursedcid: $j('#sr_courses').val(),
+          sectiondcid: $j('#sr_sections').val(),
+          schoolstaffdcid: $j('#sr_users').val(),
+          daterange1: '',
+          daterange2: '',
+          status: '-1',
+          timeslotid: recordID
+        },
+        [
+          'id',
+          'startdt',
+          'enddt',
+          'grade_levels',
+          'priorityonly',
+          'admin',
+          'mustmeet',
+          'capacity',
+          'remarks',
+          'status',
+          'coursescount',
+          'sectionscount',
+          'schoolstaffcount',
+          'save',
+          'delete'
+        ],
+        (parseInt(recordID) === -1 ? false : true)
+      );
+    }
+
+    async function showTimeslots() {
+      $j('#div_timeslots').show();
+
+      if (DataTable.isDataTable('#'+dTableID)) {
+        //let table = new DataTable('#'+dTableID);
+        dTable.destroy();
+        $j('#'+dTableID+' tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      /*
+      let tableData = await getPQ(
+        'com.psugasia.ptc5.timeslots.list', 
+        0, 
+        {
+          sessionid: sessionID,
+          coursedcid: $j('#sr_courses').val(),
+          sectiondcid: $j('#sr_sections').val(),
+          schoolstaffdcid: $j('#sr_users').val(),
+          daterange1: '',
+          daterange2: '',
+          status: '-1'
+        },
+        [
+          'id',
+          'startdt',
+          'enddt',
+          'grade_levels',
+          'priorityonly',
+          'admin',
+          'mustmeet',
+          'capacity',
+          'remarks',
+          'status',
+          'coursescount',
+          'sectionscount',
+          'schoolstaffcount',
+          'save',
+          'delete'
+        ],
+        false
+      );
+      */
+
+      dTableColumns = [
+        { name: "startdt", title: "Start Date/Time", data: 'startdt', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<input class="r_startdt" data-field="startdt" type="datetime-local" value="'+data+'" onchange="updateField(this)">';
+          else
+            return data;
+        } },
+        { name: "enddt", title: "End Date/Time", data: 'enddt', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<input class="r_enddt" data-field="enddt" type="datetime-local" value="'+data+'" onchange="updateField(this)">';
+          else
+            return data;
+        } },
+        { name: "grade_levels", title: "Grade Levels", data: 'grade_levels', render: function ( data, type, row ) {
+          if (type == 'display') {
+            let recordGradeLevels = data.split(',');
+            let html = '';
+            sessionGradeLevels.forEach(function(gradeLevel, i, a) {
+              if (gradeLevel != '') {
+                html += '<span>'
+                        + '<input class="r_grade_levels" data-field="grade_levels" type="checkbox" value="'+gradeLevel+'" onchange="updateField(this)"'+(recordGradeLevels.includes(gradeLevel) ? ' checked' : '')+'>'
+                        + '<label>'+gradeLevel+'</label>'
+                      + '</span>';
+              }
+            });
+            return html;
+          }
+          else
+            return data;
+        } },
+        { name: "priorityonly", title: "Priority", data: 'priorityonly', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<select class="r_priorityonly" data-field="priorityonly" onchange="updateField(this)"><option value="1"'+(parseInt(data) === 1 ? ' selected' : '')+'>Yes</option><option value="0"'+(parseInt(data) === 0 ? ' selected' : '')+'>No</option></select>';
+          else if (type == 'filter')
+            return (parseInt(data) === 1 ? 'Yes' : 'No');
+          else
+            return data;
+        } },
+        { name: "admin", title: "Admin", data: 'admin', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<select class="r_admin" data-field="admin" onchange="updateField(this)"><option value="1"'+(parseInt(data) === 1 ? ' selected' : '')+'>Yes</option><option value="0"'+(parseInt(data) === 0 ? ' selected' : '')+'>No</option></select>';
+          else if (type == 'filter')
+            return (parseInt(data) === 1 ? 'Yes' : 'No');
+          else
+            return data;
+        } },
+        { name: "mustmeet", title: "Must Meet", data: 'mustmeet', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<select class="r_mustmeet" data-field="mustmeet" onchange="updateField(this)"><option value="1"'+(parseInt(data) === 1 ? ' selected' : '')+'>Yes</option><option value="0"'+(parseInt(data) === 0 ? ' selected' : '')+'>No</option></select>';
+          else if (type == 'filter')
+            return (parseInt(data) === 1 ? 'Yes' : 'No');
+          else
+            return data;
+        } },
+        { name: "capacity", title: "Capacity", data: 'capacity', filterstyle: 'width: 40px;',  render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<input class="r_capacity" data-field="capacity" type="number" min="1" step="1" value="'+data+'" onchange="updateField(this)">';
+          else
+            return data;
+        } },
+        { name: "remarks", title: "Remarks", data: 'remarks', filterstyle: 'width: 150px;', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<textarea class="r_remarks" data-field="remarks" onchange="updateField(this)">'+data+'</textarea>';
+          else
+            return data;
+        } },
+        { name: "status", title: "Status", data: 'status', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<select class="r_status" data-field="status" onchange="updateField(this)"><option value="1"'+(parseInt(data) === 1 ? ' selected' : '')+'>Enabled</option><option value="0"'+(parseInt(data) === 0 ? ' selected' : '')+'>Disabled</option></select>';
+          else if (type == 'filter')
+            return (parseInt(data) === 1 ? 'Enabled' : 'Disabled');
+          else
+            return data;
+        } },
+        { name: "coursescount", title: "Courses", data: 'coursescount', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="editMulti(this, \'courses\')">'+(parseInt(data) === 0 ? 'None' : data+' selected')+'</button>';
+          else
+            return data;
+        } },
+        { name: "sectionscount", title: "Sections", data: 'sectionscount', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="editMulti(this, \'sections\')">'+(parseInt(data) === 0 ? 'None' : data+' selected')+'</button>';
+          else
+            return data;
+        } },
+        { name: "schoolstaffcount", title: "Teachers", data: 'schoolstaffcount', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="editMulti(this, \'users\')">'+(parseInt(data) === 0 ? 'None' : data+' selected')+'</button>';
+          else
+            return data;
+        } },
+        { name: "save", title: "", data: 'save', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" class="button_save" onclick="saveTimeslot(this)">Save</button>';
+          else
+            return data;
+        } },
+        { name: "delete", title: "", data: 'delete', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="deleteTimeslot(this)">Delete</button>';
+          else
+            return data;
+        } },
+      ];
+
+      dTable = new DataTable('#'+dTableID, {
+        //data: tableData,
+        ajax: function(data, callback, settings) {
+          getDTableData().then(function(json) {
+            callback({data: json});
+            dTableFilters();
+          });
+        },
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: dTableColumns,
+        order: [[0, 'asc'], [1, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.id);
+        }
+      });
+
+      /*
+      if (tableData.length > 0) {
+        table.columns().flatten().each(function(colIdx) {
+          let column = columns[colIdx];
+          switch(column.name) {
+            case 'capacity':
+            case 'remarks':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'priorityonly':
+            case 'admin':
+            case 'mustmeet':
+            case 'status':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort, descending
+                  return b - a;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+            case 'coursescount':
+            case 'sectionscount':
+            case 'schoolstaffcount':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort
+                  return a - b;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+(parseInt(d) === 0 ? 'None' : d+' selected')+'</option>'));
+                });
+
+              break;
+            case 'grade_levels':
+              var optionsHTML = '';
+              sessionGradeLevels.forEach(function(v, i, a) {
+                optionsHTML += '<option value=",'+v+',">'+v+'</option>';
+              });
+              var select = $j('<select><option value=""></option>'+optionsHTML+'</select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'startdt':
+            case 'enddt':
+              var input = $j('<input type="date" id="ft_date_'+colIdx+'" data-index="' + colIdx + '" style="width: 105px;" /><input type="time" id="ft_time_'+colIdx+'" data-index="' + colIdx + '" style="width: 95px;" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j('#ft_date_'+colIdx).val()+'T'+$j('#ft_time_'+colIdx).val())
+                    .draw();
+                });
+                
+              break;
+          }
+        });
+      }
+      */
+    }
+
+    function dTableFilters() {
+      $j('#'+dTableID+' tfoot th').empty();
+      if (dTable.rows().length > 0) {
+        dTable.columns().flatten().each(function(colIdx) {
+          let column = dTableColumns[colIdx];
+          switch(column.name) {
+            case 'capacity':
+            case 'remarks':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'priorityonly':
+            case 'admin':
+            case 'mustmeet':
+            case 'status':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort, descending
+                  return b - a;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+            case 'coursescount':
+            case 'sectionscount':
+            case 'schoolstaffcount':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              dTable
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort
+                  return a - b;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+(parseInt(d) === 0 ? 'None' : d+' selected')+'</option>'));
+                });
+
+              break;
+            case 'grade_levels':
+              var optionsHTML = '';
+              sessionGradeLevels.forEach(function(v, i, a) {
+                optionsHTML += '<option value=",'+v+',">'+v+'</option>';
+              });
+              var select = $j('<select><option value=""></option>'+optionsHTML+'</select>')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'startdt':
+            case 'enddt':
+              var input = $j('<input type="date" id="ft_date_'+colIdx+'" data-index="' + colIdx + '" style="width: 105px;" /><input type="time" id="ft_time_'+colIdx+'" data-index="' + colIdx + '" style="width: 95px;" />')
+                .appendTo(
+                  dTable.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  dTable
+                    .column(colIdx)
+                    .search($j('#ft_date_'+colIdx).val()+'T'+$j('#ft_time_'+colIdx).val())
+                    .draw();
+                });
+                
+              break;
+          }
+        });
+      }
+    }
+
+    async function deleteTimeslot(e) {
+      if (confirm("Are you sure you want to delete this timeslot?")) {
+        let row = $j(e).closest('tr');
+        let timeslotID = $j(row).data('recordid');
+        let response = await fetch('/ws/schema/table/u_ptc5_timeslots/'+timeslotID, {
+          method: 'DELETE',
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (response?.status == 204) {
+          //$j(e).closest('tr').remove();
+          dTable.row(dTable.row(row).index()).remove();
+          $j(row).remove();
+        }
+        else {
+          alert("There was a problem processing your request, please try again");
+        }
+      }
+    }
+
+    function updateField(e) {
+      let timeslotID = $j(e).closest('tr').data('recordid');
+      let row = $j(e).closest('tr');
+      //let table = new DataTable('#table_timeslots');
+      let data = dTable.row((idx, data) => parseInt(data.id) === parseInt(timeslotID)).data();
+      let fieldName = $j(e).data('field');
+      if (fieldName == 'grade_levels') {
+        if ($j('input.r_grade_levels:checked', row).length > 0) {
+          data[fieldName] = ','+$j('input.r_grade_levels:checked', row).map(function() {
+            return this.value;
+          }).get().join(',')+',';
+        }
+        else
+          data[fieldName] = '';
+      }
+      else {
+        data[fieldName] = $j(e).val();
+      }
+      dTable.row((idx, data) => parseInt(data.id) === parseInt(timeslotID)).data(data);
+      row.addClass('changed');
+    }
+
+    async function saveTimeslot(e) {
+      let timeslotRow = $j(e).closest('tr');
+      if (timeslotRow.hasClass('changed')) {
+        let timeslotID = timeslotRow.data('recordid');
+        //let table = new DataTable('#table_timeslots');
+        let data = dTable.row((idx, data) => parseInt(data.id) === parseInt(timeslotID)).data();
+
+        let scheduledCalls = 1 + (data?.courses?.length ? data?.courses?.filter((v) => !v.id || !v.coursedcid)?.length : 0) + (data?.sections?.length ? data?.sections?.filter((v) => !v.id || !v.sectiondcid)?.length : 0) + (data?.users?.length ? data?.users?.filter((v) => !v.id || !v.schoolstaffdcid)?.length : 0);
+        let finishedCalls = 0;
+
+        let api = await fetch('/ws/schema/table/u_ptc5_timeslots/'+timeslotID, {
+          method: 'PUT',
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            "tables": {
+              "u_ptc5_timeslots": {
+                "startdt": data.startdt,
+                "enddt": data.enddt,
+                "grade_levels": data.grade_levels,
+                "priorityonly": data.priorityonly,
+                "admin": data.admin,
+                "mustmeet": data.mustmeet,
+                "capacity": data.capacity,
+                "remarks": data.remarks,
+                "status": data.status
+              }
+            }
+          })
+        });
+        const response = await api.json();
+        if (response?.result[0]?.status == 'SUCCESS') {
+          finishedCalls++;
+          unChangeRow(scheduledCalls, finishedCalls, timeslotRow);
+        }
+        else
+          alert("There was a problem processing your request, please try again");
+
+        let childRecords = [];
+        if (data?.courses?.filter((v) => !v.id || !v.coursedcid)?.length > 0) {
+          data?.courses.forEach(function(course) {
+            if (course.id && !course.coursedcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_courses/'+course.id,
+                method: 'DELETE',
+                data: {} 
+              });
+            }
+            else if (!course.id && course.coursedcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_courses/',
+                method: 'POST',
+                data: {
+                  "tables": {
+                    "u_ptc5_timeslots_courses": {
+                      "u_ptc5_timeslotsid": String(timeslotID),
+                      "coursedcid": String(course.coursedcid)
+                    }
+                  }
+                } 
+              });
+            }
+          });
+        }
+        if (data?.sections?.filter((v) => !v.id || !v.sectiondcid)?.length > 0) {
+          data?.sections.forEach(function(section) {
+            if (section.id && !section.sectiondcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_sections/'+section.id,
+                method: 'DELETE',
+                data: {} 
+              });
+            }
+            else if (!section.id && section.sectiondcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_sections/',
+                method: 'POST',
+                data: {
+                  "tables": {
+                    "u_ptc5_timeslots_sections": {
+                      "u_ptc5_timeslotsid": String(timeslotID),
+                      "sectiondcid": String(section.sectiondcid)
+                    }
+                  }
+                } 
+              });
+            }
+          });
+        }
+        if (data?.users?.filter((v) => !v.id || !v.schoolstaffdcid)?.length > 0) {
+          data?.users.forEach(function(user) {
+            if (user.id && !user.schoolstaffdcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_schoolstaff/'+user.id,
+                method: 'DELETE',
+                data: {} 
+              });
+            }
+            else if (!user.id && user.schoolstaffdcid) {
+              childRecords.push({
+                url: '/ws/schema/table/u_ptc5_timeslots_schoolstaff/',
+                method: 'POST',
+                data: {
+                  "tables": {
+                    "u_ptc5_timeslots_schoolstaff": {
+                      "u_ptc5_timeslotsid": String(timeslotID),
+                      "schoolstaffdcid": String(user.schoolstaffdcid)
+                    }
+                  }
+                } 
+              });
+            }
+          });
+        }
+
+        if (childRecords.length > 0) {
+          childRecords.forEach(async function(record) {
+            let api2 = await fetch(record.url, {
+              method: record.method,
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(record.data)
+            });
+
+            if (record.method == 'DELETE') {
+              if (api2?.status == 204) {
+                finishedCalls++;
+                unChangeRow(scheduledCalls, finishedCalls, timeslotRow);
+              }
+              else
+                alert("There was a problem processing your request, please try again");
+            }
+            else {
+              const response2 = await api2.json();
+              if (response2?.result[0]?.status == 'SUCCESS') {
+                finishedCalls++;
+                unChangeRow(scheduledCalls, finishedCalls, timeslotRow);
+              }
+              else
+                alert("There was a problem processing your request, please try again");
+            }
+            
+          });
+        }
+      }
+    }
+
+    async function unChangeRow(scheduledCalls, finishedCalls, row) {
+      //console.log('scheduledCalls: '+scheduledCalls);
+      //console.log('finishedCalls: '+finishedCalls)
+      if (finishedCalls >= scheduledCalls) {
+        //let row = $j(e).closest('tr');
+        let updatedRowData = await getDTableData($j(row).data('recordid'));
+        //console.log(updatedRowData);
+        
+        dTable.row(dTable.row(row).index()).data(updatedRowData).invalidate();
+        dTableFilters();
+        $j(row).data('record', updatedRowData);
+
+        $j(row).removeClass('changed');
+      }
+    }
+
+    async function editMulti(e, fieldType) {
+      let timeslotRow = $j(e).closest('tr');
+      let timeslotID = timeslotRow.data('recordid');
+
+      let multiSelectID = '';
+      let pqParameters = {};
+      let rowFieldName = '';
+      let selectFieldName = '';
+      let dialogID = '';
+      let rowCountName = '';
+      switch(fieldType) {
+        case 'courses':
+          multiSelectID = 'r_courses';
+          pqParameters = {
+            url: 'com.psugasia.ptc5.timeslots.single.courses', 
+            pagesize: 0, 
+            arguments: {'timeslotid': timeslotID}, 
+            fields: ['id','coursedcid'], 
+            singlerow: false
+          };
+          rowFieldName = 'courses';
+          selectFieldName = 'coursedcid';
+          dialogID = 'div_dialog_courses';
+          rowCountName = 'coursescount';
+          break;
+        case 'sections':
+          multiSelectID = 'r_sections';
+          pqParameters = {
+            url: 'com.psugasia.ptc5.timeslots.single.sections', 
+            pagesize: 0, 
+            arguments: {'timeslotid': timeslotID}, 
+            fields: ['id','sectiondcid'], 
+            singlerow: false
+          };
+          rowFieldName = 'sections';
+          selectFieldName = 'sectiondcid';
+          dialogID = 'div_dialog_sections';
+          rowCountName = 'sectionscount';
+          break;
+        case 'users':
+          multiSelectID = 'r_users';
+          pqParameters = {
+            url: 'com.psugasia.ptc5.timeslots.single.users', 
+            pagesize: 0, 
+            arguments: {'timeslotid': timeslotID}, 
+            fields: ['id','schoolstaffdcid'], 
+            singlerow: false
+          };
+          rowFieldName = 'users';
+          selectFieldName = 'schoolstaffdcid';
+          dialogID = 'div_dialog_users';
+          rowCountName = 'schoolstaffcount';
+          break;
+      }
+
+
+      $j('#'+multiSelectID).chosen("destroy");
+
+      //let table = new DataTable('#table_timeslots');
+      let row = dTable.row((idx, data) => parseInt(data.id) === parseInt(timeslotID));
+      let data = row.data();
+      let timeslotExistingValue = row.data()[rowFieldName];
+      if (!timeslotExistingValue)
+        timeslotExistingValue = await getPQ(pqParameters.url, pqParameters.pagesize, pqParameters.arguments, pqParameters.fields, pqParameters.singlerow);
+      data[rowFieldName] = timeslotExistingValue;
+      row.data(data);
+      let selectOptions = [];
+      timeslotExistingValue.forEach(function(ev) {
+        selectOptions.push(ev[selectFieldName]);
+      });
+      $j('#'+multiSelectID).chosen({
+        width: "750px",
+        no_results_text: "Oops, nothing found!",
+        display_selected_options: false
+      });
+      $j('#'+multiSelectID).val(selectOptions);
+      $j('#'+multiSelectID).trigger("chosen:updated");
+
+      $j('#'+dialogID).dialog({
+        modal: true,
+        width: 800,
+        height: 400,
+        buttons: [
+          {
+            text: 'Submit',
+            click: function() {
+              let dialog = this;
+              data = row.data();
+              let selectedValues = $j('#'+multiSelectID).val();
+              let existingValues = data[rowFieldName];
+              existingValues.forEach(function(ev) {
+                if (!selectedValues.includes(ev[selectFieldName]))
+                  ev[selectFieldName] = undefined;
+              });
+              selectedValues.forEach(function(sv) {
+                if (!existingValues.some(ev => parseInt(ev[selectFieldName]) === parseInt(sv)))
+                  existingValues.push({id: undefined, [selectFieldName]: sv});
+              });
+              data[selectFieldName] = existingValues;
+              data[rowCountName] = selectedValues.length;
+              row.data(data).draw();
+              timeslotRow.addClass('changed');
+              $j(dialog).dialog("close");
+            }
+          }
+        ]
+      });
+    }
+
+    function saveAll() {
+      if ($j('#'+dTableID+' tbody tr.changed').length > 0) {
+        $j('#'+dTableID+' tbody tr.changed').each(function(k,v) {
+          $j('button.button_save', v).trigger('click');
+        });
+      }
+      else
+        alert("There are no changes to save");
+    }
+
+    function clearOptions(id) {
+      $j('#'+id).val([]).trigger("chosen:updated");
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+    input.r_capacity {
+      width: 40px;
+    }
+    textarea.r_remarks {
+      width: 150px;
+      height: 1.5em;
+    }
+    span input[type="checkbox"] + label {
+      margin-inline-end: 5px !important;
+    }
+    .changed {
+      background-color: plum !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Manage Timeslots (List View)
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Manage Timeslots (List View)</h1> 
+<!-- start of content area --> 
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no sessions defined for this school/year.  Please <a href="/admin/psugasia/ptc5/sessions_list.html">create a session</a> first or select school/year that has sessions.
+  </div>
+
+  <div id="div_existingsession">
+    <fieldset>
+      <div>
+        <label for="sr_session">Session</label>
+        <select id="sr_session" onchange="updateSession()">
+~[tlist_sql;
+select
+id,
+schoolid,
+grade_levels,
+name
+
+from u_ptc5_sessions
+
+where
+nvl(status,0) = 1
+and yearid = '~(curyearid)'
+~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+order by name
+;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)">~(name)</option>
+[/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <label for="sr_courses">Filter Course <button type="button" class="explanation" data-contentid="courses">?</button></label>
+        <select id="sr_courses"></select>
+      </div>
+      <div>
+        <label for="sr_sections">Filter Section <button type="button" class="explanation" data-contentid="sections">?</button></label>
+        <select id="sr_sections"></select>
+      </div>
+      <div>
+        <label for="sr_users">Filter Teacher <button type="button" class="explanation" data-contentid="users">?</button></label>
+        <select id="sr_users"></select>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" onclick="showTimeslots()">Show Timeslots</button>
+    </div>
+
+    <div class="box-round" id="div_timeslots" style="padding: 10px; display: none;">
+      <table class="display compact" id="table_timeslots">
+        <thead>
+          <tr>
+            <th>Start Date/Time</th>
+            <th>End Date/Time</th>
+            <th>Grade Levels</th>
+            <th>Priority</th>
+            <th>Admin</th>
+            <th>Must Meet</th>
+            <th>Capacity</th>
+            <th>Remarks</th>
+            <th>Status</th>
+            <th>Courses</th>
+            <th>Sections</th>
+            <th>Teachers</th>
+            <th class="alwaysshow noexport"></th>
+            <th class="alwaysshow noexport"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th style="white-space: nowrap;"></th>
+            <th style="white-space: nowrap;"></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="button-row">
+        <button type="button" onclick="saveAll()">Save all changes</button>
+      </div>
+    </div>
+
+    <div id="explanation_courses" style="display:none;">
+      Only show timeslots that allow bookings for this course.
+    </div>
+
+    <div id="explanation_sections" style="display:none;">
+      Only show timeslots that allow bookings for this section.
+    </div>
+
+    <div id="explanation_users" style="display:none;">
+      Only show timeslots that allow bookings for this teacher.
+    </div>
+
+    <div id="div_dialog_courses" style="display:none;" title="Courses">
+      <p>
+        <input type="hidden" autofocus>
+        <select id="r_courses" multiple data-placeholder=" "></select>
+        <br>
+        <button type="button" onclick="clearOptions('r_courses')" style="margin-inline-start: 0;">Clear Selection</button>
+      </p>
+    </div>
+
+    <div id="div_dialog_sections" style="display:none;" title="Sections">
+      <p>
+        <input type="hidden" autofocus>
+        <select id="r_sections" multiple data-placeholder=" "></select>
+        <br>
+        <button type="button" onclick="clearOptions('r_sections')" style="margin-inline-start: 0;">Clear Selection</button>
+      </p>
+    </div>
+
+    <div id="div_dialog_users" style="display:none;" title="Teachers">
+      <p>
+        <input type="hidden" autofocus>
+        <select id="r_users" multiple data-placeholder=" "></select>
+        <br>
+        <button type="button" onclick="clearOptions('r_users')" style="margin-inline-start: 0;">Clear Selection</button>
+      </p>
+    </div>
+
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

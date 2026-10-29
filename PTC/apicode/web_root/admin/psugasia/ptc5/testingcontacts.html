@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Testing Contacts</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/chosen/chosen.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/chosen/chosen.jquery.min.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    async function loadSearchSelect() {
+      let filterList = await getPQ(
+        'com.psugasia.ptc5.general.contactswithdataaccess', 
+        0, 
+        null,
+        [
+          'id',
+          'firstname',
+          'middlename',
+          'lastname'
+        ],
+        false
+      );
+
+      $j('#sr_filter').empty();
+      filterList.forEach(function(v, i, a) {
+        let contactName = (v.lastname+', '+(v.firstname+' '+v.middlename).trim()).trim();
+        $j('#sr_filter').append('<option value="'+v.id+'">'+contactName+' ('+v.id+')</option>');
+      });
+      $j('#sr_filter').chosen({
+        no_results_text: "Oops, nothing found!"
+      });
+    }
+
+    async function loadRecords() {
+      if (DataTable.isDataTable('#table_records')) {
+        let table = new DataTable('#table_records');
+        table.destroy();
+        $j('#table_records tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      let tableData = await getPQ(
+        'com.psugasia.ptc5.testingcontacts.list', 
+        0, 
+        null,
+        [
+          'id',
+          'personid',
+          'remarks',
+          'firstname',
+          'middlename',
+          'lastname',
+          'save',
+          'delete'
+        ],
+        false
+      );
+
+      let columns = [
+        { name: "personid", title: "Contact ID", data: 'personid', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<a href="/admin/contacts/edit.html#?contactid='+row.personid+'" target="_blank">'+data+'</a>';
+          else
+            return data;
+        } },
+        { name: "lastname", title: "Last Name", data: 'lastname' },
+        { name: "firstname", title: "First Name", data: 'firstname' },
+        { name: "middlename", title: "Middle Name", data: 'middlename' },
+        { name: "remarks", title: "Remarks", data: 'remarks', render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<input type="text" class="record_remarks" value="'+data+'">';
+          else
+            return data;
+        } },
+        { name: "save", title: "", data: 'save', class: "centered", sortable: false, render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="saveRecord(this)">Save</button>';
+          else
+            return data;
+        } },
+        { name: "delete", title: "", data: 'delete', class: "centered", sortable: false, render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="deleteRecord(this)">Remove</button>';
+          else
+            return data;
+        } }
+      ];
+
+      let table = new DataTable('#table_records', {
+        data: tableData,
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: columns,
+        order: [[0, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.id);
+        }
+      });
+
+      if (tableData.length > 0) {
+        table.columns().flatten().each(function(colIdx) {
+          let column = columns[colIdx];
+          switch(column.name) {
+            case 'firstname':
+            case 'middlename':
+            case 'lastname':
+            case 'remarks':
+            case 'personid':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+          }
+        });
+      }
+
+      refreshSearchSelect();
+    }
+
+    async function refreshSearchSelect() {
+      await loadSearchSelect();
+      let dTable = new DataTable('#table_records');
+      dTable.data().each(function(data) {
+        $j('#sr_filter option[value="'+data.personid+'"]').remove();
+      });
+      $j('#sr_filter').trigger("chosen:updated");
+    }
+
+    async function addRecord() {
+      let api = await fetch("/ws/schema/table/u_ptc5_testingcontacts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "tables": {
+            "u_ptc5_testingcontacts": {
+              "personid": $j('#sr_filter').val(),
+              "remarks": ''
+            }
+          }
+        })
+      });
+      const response = await api.json();
+      if (response?.result[0]?.status == 'SUCCESS') {
+        loadRecords();
+      }
+      else {
+        alert("There was a problem processing your request, please try again");
+      }
+    }
+
+    async function deleteRecord(e) {
+      if (confirm("Are you sure you want to delete this record?")) {
+        let recordID = $j(e).closest('tr').data('recordid');
+        let api = await fetch("/ws/schema/table/u_ptc5_testingcontacts/"+recordID, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (api?.status == 204) {
+          loadRecords();
+        }
+        else {
+          alert("There was a problem processing your request, please try again");
+        }
+      }
+    }
+
+    async function saveRecord(e) {
+      let row = $j(e).closest('tr');
+      let recordID = $j(row).data('recordid');
+      let api = await fetch("/ws/schema/table/u_ptc5_testingcontacts/"+recordID, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "tables": {
+            "u_ptc5_testingcontacts": {
+              "remarks": $j('input.record_remarks', row).val()
+            }
+          }
+        })
+      });
+      const response = await api.json();
+      if (response?.result[0]?.status == 'SUCCESS') {
+        //loadRecords();
+      }
+      else {
+        alert("There was a problem processing your request, please try again");
+      }
+    }
+
+    $j(function() {
+      loadSearchSelect();
+      loadRecords();
+      //loadExplanationToolTips();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+    .changed {
+      background-color: plum !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Testing Contacts
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Testing Contacts</h1> 
+<!-- start of content area --> 
+
+  <div class="feedback-info">
+    <ul>
+      <li>Contact Accounts listed here will always be able to access the PTC pages on the Public Portal regardless if sessions are open or not.</li>
+      <li>Use these accounts to test your PTC setup before opening the signup session.</li>
+      <li>The Add Testing Contact dropdown will only show contacts with student data access.</li>
+    </ul>
+  </div>
+
+  <fieldset>
+    <div>
+      <label for="sr_filter">Testing Contact</label>
+      <select id="sr_filter" data-placeholder="Choose a contact..."></select>
+    </div>
+    <div class="button-row">
+      <button type="button" onclick="addRecord()">Add Testing Contact</button>
+    </div>
+  </fieldset>
+
+  <div class="box-round" style="padding: 10px;">
+    <h2>Existing Testing Contacts</h2>
+    <table class="display compact" id="table_records">
+      <thead>
+        <tr>
+          <th>Contact ID</th>
+          <th>Last Name</th>
+          <th>First Name</th>
+          <th>Middle Name</th>
+          <th>Remarks</th>
+          <th class="alwaysshow noexport"></th>
+          <th class="alwaysshow noexport"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th class="centered"></th>
+          <th class="centered"></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

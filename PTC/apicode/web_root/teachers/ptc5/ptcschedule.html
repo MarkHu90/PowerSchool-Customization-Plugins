@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PTC Schedule</title>
+<!-- required scripts -->
+~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css -->
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/fontawesome/css/all.min.css" rel="stylesheet">
+  <link href="/scripts/psugasia/ptc5/event-calendar/event-calendar.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psugasia/ptc5/event-calendar/event-calendar.min.js?v=5.0.0" type="text/javascript"></script>
+  <script src="/scripts/psQuery/psQuery.js"></script>
+  <script>
+    let sessionID;
+    let sessionSchoolID;
+    let sessionGradeLevels = [];
+    let sessionYearID;
+    const curTeacherDCID = '~[tlist_sql;select dcid from teachers where users_dcid = '~[x:users_dcid]' and schoolid = '~(curschoolid)';]~(dcid)[/tlist_sql]';
+    const licenceKey = '~[tlist_sql;select licensekey from u_ptc5_settings where rownum=1;]~(licensekey)[/tlist_sql]';
+    let studentsList = [];
+    let sectionsList = [];
+    let timeslotsList = [];
+    let eventCalendar;
+    let userPreferences = JSON.parse(localStorage.getItem('ptc5_teacher'));
+    const preferenceName = 'ptcschedule';
+
+    function savePreferences() {
+      let pageObject = {};
+      $j('.preference').each(function(k,v) {
+        if ($j(v).prop('tagName').toLowerCase() == 'input' && $j(v).attr('type') == 'checkbox')
+          pageObject[$j(v).attr('id')] = $j(v).prop('checked');
+        else
+          pageObject[$j(v).attr('id')] = $j(v).val();
+      });
+      if (!userPreferences)
+        userPreferences = {};
+      userPreferences[preferenceName] = pageObject;
+      localStorage.setItem('ptc5_teacher', JSON.stringify(userPreferences));
+    }
+
+    function loadPreferences() {
+      if (userPreferences && userPreferences[preferenceName]) {
+        $j('.preference').each(function(k,v) {
+          if ($j(v).prop('tagName').toLowerCase() == 'input' && $j(v).attr('type') == 'checkbox')
+            $j(v).prop('checked', userPreferences[preferenceName][$j(v).attr('id')]);
+          else
+            $j(v).val(userPreferences[preferenceName][$j(v).attr('id')]);
+        });
+      }
+    }
+
+    async function updateSession() {
+      if ($j('#sr_session').val()) {
+        $j('#button_showschedule').html('Loading background data...').prop('disabled', true);
+        sessionID = $j('#sr_session').val();
+        sessionSchoolID = $j('#sr_session').find(':selected').data('schoolid');
+        let gradeLevels = $j('#sr_session').find(':selected').data('grade_levels');
+        sessionGradeLevels = gradeLevels.split(',').filter(Number);
+        sessionYearID = $j('#sr_session').find(':selected').data('yearid');
+
+        await loadStudents();
+        await loadSections();
+        await loadTimeslots();
+
+        $j('#button_showschedule').html('Show My Bookings').prop('disabled', false);
+      }
+      else {
+        $j('#div_existingsession').hide();
+        $j('#div_nosessions').show();
+      }
+    }
+
+    async function loadStudents() {
+      studentsList = await getPSJSON(
+        '/teachers/ptc5/ptcstudents.json', 
+        {
+          hid: sessionSchoolID
+        },
+        [
+          'dcid',
+          'lastfirst',
+          'id'
+        ],
+        false
+      );
+      /*
+      studentsList = await getPQ(
+        'com.psugasia.ptc5.general.students', 
+        0, 
+        {
+          'schoolid': sessionSchoolID
+        },
+        [
+          'dcid',
+          'lastfirst',
+          'id'
+        ],
+        false
+      );
+      */
+    }
+
+    async function loadSections() {
+      sectionsList = await getPSJSON(
+        '/teachers/ptc5/sections.json', 
+        {
+          hid: sessionSchoolID,
+          yid: sessionYearID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+      /*
+      sectionsList = await getPQ(
+        'com.psugasia.ptc5.general.sections', 
+        0, 
+        {
+          'schoolid': sessionSchoolID,
+          'yearid': sessionYearID
+        },
+        [
+          'dcid',
+          'course_name',
+          'section_number'
+        ],
+        false
+      );
+      */
+    }
+
+    async function loadTimeslots() {
+      timeslotsList = await getPQ(
+        'com.psugasia.ptc5.timeslots.list', 
+        0, 
+        {
+          sessionid: sessionID,
+          coursedcid: '-1',
+          sectiondcid: '-1',
+          schoolstaffdcid: '-1',
+          daterange1: '',
+          daterange2: '',
+          status: '1',
+          timeslotid: '-1'
+        },
+        [
+          'id',
+          'startdt',
+          'enddt'
+        ],
+        false
+      );
+    }
+
+    async function showSchedule() {
+      $j('#div_nobookings').hide();
+      let events = await loadBookings();
+
+      if (events.length > 0) {
+        if (eventCalendar)
+          EventCalendar.destroy(eventCalendar)
+        eventCalendar = EventCalendar.create(document.getElementById('div_eventcalendar'), {
+          view: 'timeGridWeek',
+          headerToolbar: {
+            start: 'prev,next today',
+            center: 'title',
+            end: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+          },
+          events: events,
+          eventClick: function(info) {
+            showEvent(info);
+          },
+          eventContent: function(info) {
+            return renderEvent(info);
+          },
+          eventStartEditable: false,
+          eventDurationEditable: false,
+          allDaySlot: false,
+          hiddenDays: ($j('#sr_hideweekends').prop('checked') ? [0,6] : []),
+          date: new Date(events[0].start),
+          slotMinTime: $j('#sr_timemin').val(),
+          slotMaxTime: $j('#sr_timemax').val(),
+          titleFormat: {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'},
+          slotDuration: '00:10:00'
+        });
+      }
+      else
+        $j('#div_nobookings').show();
+    }
+
+    async function loadBookings() {
+      let bookings = await getPHP(
+        'https://www.psugasia.com/webapps/api/ptc/v5/teacherschedule.php', 
+        {
+          a: licenceKey,
+          b: sessionID,
+          g: curTeacherDCID
+        },
+        [
+          'id',
+          'studentdcid',
+          'timeslotid',
+          'sectiondcid',
+          'parentmessage',
+          'lastupdated'
+        ],
+        false
+      );
+      
+      //console.log(bookings);
+
+      let events = [];
+      bookings.forEach(function(booking) {
+        let timeslot = timeslotsList.find((e) => parseInt(e.id) === parseInt(booking.timeslotid));
+        let student = studentsList.find((e) => parseInt(e.dcid) === parseInt(booking.studentdcid));
+        let section = sectionsList.find((e) => parseInt(e.dcid) === parseInt(booking.sectiondcid));
+        let fullBookingObj = {
+          booking: booking,
+          //timeslot: timeslot,
+          student: student,
+          section: section
+        };
+
+        //console.log(fullBookingObj);
+        
+        if (timeslot && student && section) {
+          events.push({
+            id: booking.id,
+            start: (timeslot.startdt+':00').replaceAll('T', ' '),
+            end: (timeslot.enddt+':00').replaceAll('T', ' '),
+            extendedProps: fullBookingObj
+          });
+        }
+      });
+
+      //console.log(events);
+
+      return events;
+    }
+
+    function renderEvent(info) {
+      //console.log(info);
+      if (!info.view.type.startsWith('resourceTime')) {
+        return {html: '<div>'+info.event.extendedProps.student.lastfirst+'</div><div>'+info.timeText+'</div>'};
+      }
+      else
+        return undefined;
+    }
+
+    async function showEvent(info) {
+      //console.log(info);
+
+      $j('#div_dialog_event span').empty();
+      $j('#div_dialog_event textarea').empty();
+      $j('#div_dialog_event table tbody').empty();
+
+      let thisEvent = info.event;
+      let bookingID = thisEvent.id;
+
+      $j('#r_startdt').html(convertToDateTimeLocalString(thisEvent.start).replaceAll('T',' '));
+      $j('#r_enddt').html(convertToDateTimeLocalString(thisEvent.end).replaceAll('T',' '));
+      $j('#r_student').html(thisEvent.extendedProps.student.lastfirst+'<br><a class="dialogC" href="/teachers/studentpages/student_photo.html?pid='+thisEvent.extendedProps.student.id+'&disimg='+thisEvent.extendedProps.student.id+'ph"><img class="portrait" src="/teachers/stpthumb/'+thisEvent.extendedProps.student.id+'ph_thumb.jpeg" border="0"></a>');
+      $j('#r_section').html('<a href="/teachers/index.html#/classes/assignments?sectionId='+thisEvent.extendedProps.section.dcid+'" target="_blank">'+thisEvent.extendedProps.section.section_number+' ('+thisEvent.extendedProps.section.course_name+')</a>');
+      $j('#r_parentmessage').html(thisEvent.extendedProps.booking.parentmessage);
+
+      let contacts = await getPSJSON(
+        '/teachers/ptc5/contacts.json', 
+        {
+          studentdcids: thisEvent.extendedProps.student.dcid
+        },
+        [
+          'studentdcid',
+          'personid',
+          'firstname',
+          'middlename',
+          'lastname',
+          'relationship',
+          'emails',
+          'phones'
+        ],
+        false
+      );
+      let contactsCount = 0;
+      contacts.forEach(function(contact) {
+        if (contact.personid != '') {
+          let contactHTML = '<tr>'
+                          + '<td>'+contact.personid+'</td>'
+                          + '<td>'+(contact.lastname != '' || contact.firstname != '' || contact.middlename != '' ? contact.lastname+', '+contact.firstname+' '+contact.middlename : '')+'</td>'
+                          + '<td>'+contact.relationship+'</td>'
+                          + '<td>'+String(contact.emails).replaceAll(',','<br>')+'</td>'
+                          + '<td>'+String(contact.phones).replaceAll(',','<br>')+'</td>'
+                          + '</tr>';
+          $j('#r_parents tbody').append(contactHTML);
+          contactsCount++;
+        }
+      });
+      if (contactsCount === 0)
+        $j('#r_parents tbody').append('<tr><td colspan="5">This student does not have active father/mother contact records</td></tr>');
+
+      let remarks = await getPQ(
+        'com.psugasia.ptc5.bookings.single', 
+        0, 
+        {
+          'bookingids': [bookingID]
+        },
+        [
+          'id',
+          'remarks'
+        ],
+        true
+      );
+      let recordID = remarks.id;
+      $j('#r_remarks').data('recordid', recordID);
+      $j('#r_remarks').val(remarks.remarks);
+
+      let location = await getPSJSON(
+        '/teachers/ptc5/location.json', 
+        {
+          sdcid: thisEvent.extendedProps.student.dcid,
+          edcid: thisEvent.extendedProps.section.dcid,
+          sessionid: sessionID
+        },
+        [
+          'room',
+          'onlineurl',
+          'pmmeid',
+          'pmmid'
+        ],
+        true
+      );
+      $j('#r_location').html(location.onlineurl || location.room || '');
+      if (location.pmmeid || location.pmmid)
+        $j('#r_section').prepend('<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i> ');
+
+      $j('#div_dialog_event').dialog({
+        modal: true,
+        width: 900,
+        height: 750,
+        buttons: [
+          {
+            text: 'Submit',
+            click: function() {
+              let dialog = this;
+              if (recordID) {
+                $psq('u_ptc5_bookingremarks').update(recordID, {remarks: $j('#r_remarks').val()}, function(returnID) {
+                  $j(dialog).dialog("close");
+                });
+              }
+              else {
+                $psq('u_ptc5_bookingremarks').insert({bookingid: bookingID, remarks: $j('#r_remarks').val()}, function(returnID) {
+                  $j(dialog).dialog("close");
+                });
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    $j(function() {
+      updateSession();
+      loadExplanationToolTips();
+      loadPreferences();
+    });
+  </script>
+  <style>
+    /*fix weird PS button styles*/
+    .ec-button {
+      color: black;
+    }
+    .ec-button:not(:hover) {
+      background-color: white;
+    }
+
+    div.ec-events > article > div.ec-event-body {
+      flex-direction: row;
+      justify-content: space-between;
+    }
+    .ec-event {
+      cursor: pointer;
+    }
+    .ec-event:hover {
+      background-color: blue;
+      color: white;
+    }
+  </style>
+</head> 
+<body> 
+~[wc:teachers_header_css] 
+~[wc:teachers_navigation_css] 
+<!-- sets active navigation tab --> 
+~[SetPostValue:tabname=psugasiaptc5] 
+~[wc:teachers_nav_css] 
+  <h1>PTC Schedule</h1> 
+  <!--<form name="navigation">-->
+<!-- start of content area --> 
+
+  <div id="div_nosessions" class="feedback-alert" style="display: none;">
+    There are no PTC sessions in the current school/year.
+  </div>
+
+  <div id="div_existingsession">
+
+    <div class="feedback-info">
+      Select the PTC session you want to see.
+    </div>
+
+    <fieldset>
+      <div>
+        <label for="sr_session">PTC Session</label>
+        <select id="sr_session" onchange="updateSession()">
+  ~[tlist_sql;
+  select
+  id,
+  schoolid,
+  grade_levels,
+  yearid,
+  name
+
+  from u_ptc5_sessions
+
+  where
+  nvl(status,0) = 1
+  and yearid = '~(curyearid)'
+  ~[if#school.~(curschoolid)#0]and schoolid = '~(curschoolid)'[/if#school]
+
+  order by name
+  ;]
+          <option value="~(id)" data-schoolid="~(schoolid)" data-grade_levels="~(grade_levels)" data-yearid="~(yearid)">~(name)</option>
+  [/tlist_sql]
+        </select>
+      </div>
+      <div>
+        <label for="sr_hideweekends">Hide Weekends</label>
+        <input type="checkbox" id="sr_hideweekends" class="preference" onchange="savePreferences()">
+      </div>
+      <div>
+        <label>Display Time Range <button type="button" class="explanation" data-contentid="timerange">?</button></label>
+        <input type="time" id="sr_timemin" value="08:00" class="preference" onchange="savePreferences()">
+        -
+        <input type="time" id="sr_timemax" value="20:00" class="preference" onchange="savePreferences()">
+      </div>
+      <div class="button-row">
+        <button type="button" onclick="showSchedule()" id="button_showschedule">Show My Bookings</button>
+      </div>
+    </fieldset>
+
+    <div id="div_nobookings" class="feedback-alert" style="display: none;">
+      You do not have any bookings for the selected PTC session.
+    </div>
+
+    <div id="div_eventcalendar" style="margin: 10px;"></div>
+
+    <div id="div_dialog_event" style="display:none;" title="Booking Details">
+      <input type="hidden" autofocus>
+      <fieldset>
+        <div>
+          <label>Start Date/Time</label>
+          <span id="r_startdt"></span>
+        </div>
+        <div>
+          <label>End Date/Time</label>
+          <span id="r_enddt"></span>
+        </div>
+        <div>
+          <label>Student</label>
+          <span id="r_student"></span>
+        </div>
+        <div>
+          <label>Parents</label>
+          <table class="grid" id="r_parents" style="margin-bottom: 0; margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>Contact ID</th>
+                <th>Name</th>
+                <th>Relationship</th>
+                <th>Email Addresses</th>
+                <th>Phone Numbers</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div>
+          <label>Section</label>
+          <span id="r_section"></span>
+        </div>
+        <div>
+          <label>Location</label>
+          <span id="r_location"></span>
+        </div>
+        <div>
+          <label>Message from Parents</label>
+          <span id="r_parentmessage" class="preserveLineBreaks"></span>
+        </div>
+        <div>
+          <label for="r_remarks">Remarks <button type="button" class="explanation" data-contentid="remarks">?</button></label>
+          <textarea id="r_remarks" data-recordid="" style="width: 400px; height: 4em;"></textarea>
+        </div>
+      </fieldset>
+    </div>
+
+    <div id="explanation_remarks" style="display:none;">
+      This is only visible to you.
+    </div>
+
+    <div id="explanation_timerange" style="display:none;">
+      Control the earliest and latest times to show on Week and Day views.
+    </div>
+
+  </div>
+<!-- end of content area --> 
+~[wc:teachers_footer_css]
+</body> 
+</html>

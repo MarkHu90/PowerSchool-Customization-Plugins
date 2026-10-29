@@ -1,0 +1,11 @@
+~[tlist_sql;
+select
+maxreachedmessage
+
+from u_attendancenotices_settings
+
+where
+schoolid = '~(curschoolid)'
+;]
+~(maxreachedmessage)
+[/tlist_sql]

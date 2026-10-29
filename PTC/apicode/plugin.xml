@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <plugin xmlns="http://plugin.powerschool.pearson.com" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  description="PSUG Asia PTC customization files and API access" 
+  name="PSUG Asia PTC V5 API" 
+  version="5.0.0" 
+  xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+
+	<oauth></oauth>
+  <access_request>
+    <cdn_request>
+			<cdn name="https://psugasia.com"/>
+			<cdn name="https://*.psugasia.com"/>
+      <cdn name="https://tz.add-to-calendar-technology.com"/>
+		</cdn_request>
+
+    <field table="studentcontactdetail" field="isactive" access="ViewOnly" />
+    <field table="codeset" field="code" access="ViewOnly" />
+    <field table="codeset" field="codesetid" access="ViewOnly" />
+    <field table="codeset" field="codetype" access="ViewOnly" />
+    <field table="courses" field="course_name" access="ViewOnly" />
+    <field table="courses" field="course_number" access="ViewOnly" />
+    <field table="emailaddress" field="emailaddress" access="ViewOnly" />
+    <field table="emailaddress" field="emailaddressid" access="ViewOnly" />
+    <field table="person" field="id" access="ViewOnly" />
+    <field table="personemailaddressassoc" field="emailaddressid" access="ViewOnly" />
+    <field table="personemailaddressassoc" field="personid" access="ViewOnly" />
+    <field table="sections" field="course_number" access="ViewOnly" />
+    <field table="sections" field="dcid" access="ViewOnly" />
+    <field table="sections" field="room" access="ViewOnly" />
+    <field table="sections" field="section_number" access="ViewOnly" />
+    <field table="studentcontactassoc" field="personid" access="ViewOnly" />
+    <field table="studentcontactassoc" field="studentcontactassocid" access="ViewOnly" />
+    <field table="studentcontactassoc" field="studentdcid" access="ViewOnly" />
+    <field table="studentcontactdetail" field="enddate" access="ViewOnly" />
+    <field table="studentcontactdetail" field="relationshiptypecodesetid" access="ViewOnly" />
+    <field table="studentcontactdetail" field="startdate" access="ViewOnly" />
+    <field table="studentcontactdetail" field="studentcontactassocid" access="ViewOnly" />
+    <field table="students" field="dcid" access="ViewOnly" />
+    <field table="students" field="lastfirst" access="ViewOnly" />
+    <field table="teachers" field="dcid" access="ViewOnly" />
+    <field table="teachers" field="lastfirst" access="ViewOnly" />
+    <field table="u_ptc5_timeslots" field="enddt" access="ViewOnly" />
+    <field table="u_ptc5_timeslots" field="id" access="ViewOnly" />
+    <field table="u_ptc5_timeslots" field="startdt" access="ViewOnly" />
+    <field table="u_schoolstaff_ptc5" field="onlineurl" access="ViewOnly" />
+    <field table="u_schoolstaff_ptc5" field="room" access="ViewOnly" />
+    <field table="u_schoolstaff_ptc5" field="schoolstaffdcid" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="smtp_server" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="smtp_username" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="smtp_password" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="email_from" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="email_cc" access="ViewOnly" />
+    <field table="u_ptc5_settings" field="email_bcc" access="ViewOnly" />
+  </access_request>
+
+  <publisher name="PSUG Asia">
+    <contact email="supportps@psugasia.com"/>
+  </publisher>
+
+</plugin>

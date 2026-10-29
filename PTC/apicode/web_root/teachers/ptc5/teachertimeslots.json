@@ -1,0 +1,114 @@
+[
+~[tlist_sql;
+select
+pt.id,
+pt.startdt,
+pt.enddt
+
+from u_ptc5_timeslots pt
+
+where
+pt.u_ptc5_sessionsid = '~(gpv.sessionid)'
+and nvl(pt.status,0) = 1
+and (
+  (select count(1) from u_ptc5_timeslots_schoolstaff ptu where pt.id = ptu.u_ptc5_timeslotsid) = 0
+  or
+  (select count(1) from u_ptc5_timeslots_schoolstaff ptu where pt.id = ptu.u_ptc5_timeslotsid and ptu.schoolstaffdcid = '~(gpv.hsid)') > 0
+)
+and (
+  (select count(1) from u_ptc5_timeslots_courses ptc where pt.id = ptc.u_ptc5_timeslotsid) = 0
+  or
+  (
+    (
+      select count(1) from u_ptc5_timeslots_courses ptc where pt.id = ptc.u_ptc5_timeslotsid and 
+      ptc.coursedcid in (
+        select distinct
+        c.dcid
+    
+        from sections e
+        inner join courses c on e.course_number = c.course_number
+        inner join teachers t on e.teacher = t.id
+        inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+    
+        where
+        t.dcid = '~(gpv.hsid)'
+        and e.schoolid = '~(gpv.hid)'
+        and r.yearid = '~(gpv.yid)'
+    
+        union
+    
+        select distinct
+        c.dcid
+    
+        from u_ptc5_cc pc
+        inner join cc d on pc.ccid = d.id
+        inner join sections e on d.sectionid = e.id
+        inner join courses c on e.course_number = c.course_number
+        inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+    
+        where
+        pc.schoolstaffdcid = '~(gpv.hsid)'
+        and e.schoolid = '~(gpv.hid)'
+        and r.yearid = '~(gpv.yid)'
+      )
+    ) > 0
+  )
+)
+and (
+  (select count(1) from u_ptc5_timeslots_sections pts where pt.id = pts.u_ptc5_timeslotsid) = 0
+  or
+  (
+    (
+      select count(1) from u_ptc5_timeslots_sections pts where pt.id = pts.u_ptc5_timeslotsid and 
+      pts.sectiondcid in (
+        select distinct
+        e.dcid
+    
+        from sections e
+        inner join teachers t on e.teacher = t.id
+        inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+    
+        where
+        t.dcid = '~(gpv.hsid)'
+        and e.schoolid = '~(gpv.hid)'
+        and r.yearid = '~(gpv.yid)'
+    
+        union
+    
+        select distinct
+        e.dcid
+    
+        from u_ptc5_cc pc
+        inner join cc d on pc.ccid = d.id
+        inner join sections e on d.sectionid = e.id
+        inner join terms r on e.termid = r.id and e.schoolid = r.schoolid
+    
+        where
+        pc.schoolstaffdcid = '~(gpv.hsid)'
+        and e.schoolid = '~(gpv.hid)'
+        and r.yearid = '~(gpv.yid)'
+      )
+    ) > 0
+  )
+)
+and (
+  (
+    select count(1) 
+    from u_ptc5_timeslots_blocked ptb 
+    where 
+    pt.id = ptb.u_ptc5_timeslotsid 
+    and ptb.schoolstaffdcid = '~(gpv.hsid)' 
+    and nvl(ptb.status,0) = 1
+  ) = 0
+)
+
+order by pt.startdt, pt.enddt
+;]
+  {
+    "id":"~(id;json)",
+    "startdt":"~(startdt;json)",
+    "enddt":"~(enddt;json)"
+  },
+[/tlist_sql]
+  {}
+]

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<psExtension xmlns="http://www.powerschool.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.powerschool.com psextension.xsd">
+    <extensionname>u_attendancenotices</extensionname>
+    <extendedTable type="standalone" dbTableName="u_attendancenotices_settings" childName="u_attendancenotices_settings" comment="">
+        <field name="schoolid" type="Integer"/>
+        <field name="enabled" type="Integer" defaultValue="0"/>
+        <field name="calendar_notes" type="Integer" defaultValue="0"/>
+        <field name="calendar_cycledays" type="Integer" defaultValue="0"/>
+        <field name="calendar_slotduration" type="String" length="5"/>
+        <field name="calendar_starttime" type="String" length="5"/>
+        <field name="calendar_endtime" type="String" length="5"/>
+        <field name="calendar_weekend" type="Integer" defaultValue="0"/>
+        <field name="maxrequests" type="Integer" defaultValue="0"/>
+        <field name="attendancemode" type="String" length="10" defaultValue="meeting"/>
+        <field name="maxreachedmessage" type="Clob"/>
+        <field name="reasonslist" type="Clob" defaultValue="You have reached the maximum allowed number of attendance notices.  Please wait for the school to process your existing notices and/or delete existing attendance notices that have not been recorded yet."/>
+        <field name="show_allday" type="Boolean" defaultValue="0"/>
+        <field name="require_remarks" type="Boolean" defaultValue="0"/>
+    </extendedTable>
+    <extendedTable type="standalone" dbTableName="u_attendancenotices_requests" childName="u_attendancenotices_requests" comment="">
+        <field name="studentsdcid" type="Integer"/>
+        <field name="schoolid" type="Integer"/>
+        <field name="date_start" type="Date"/>
+        <field name="date_end" type="Date"/>
+        <field name="time_start" type="String" length="5"/>
+        <field name="time_end" type="String" length="5"/>
+        <field name="allday" type="Integer" defaultValue="0"/>
+        <field name="reason" type="String" length="100"/>
+        <field name="remarks" type="Clob"/>
+        <field name="processed" type="Integer" defaultValue="0"/>
+        <field name="processed_by" type="String" length="100"/>
+        <field name="processed_when" type="String" length="20"/>
+        <field name="personal_leave" type="Integer" defaultValue="0"/>
+        <field name="principal_approved" type="Integer" defaultValue="0"/>
+        <field name="rejected" type="Integer" defaultValue="0"/>
+        <field name="rejected_remarks" type="Clob"/>
+    </extendedTable>
+</psExtension>

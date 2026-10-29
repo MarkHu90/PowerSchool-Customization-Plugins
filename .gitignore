@@ -1,0 +1,6 @@
+*.zip
+.codegraph
+.DS_Store
+out
+.claude
+.superpowers

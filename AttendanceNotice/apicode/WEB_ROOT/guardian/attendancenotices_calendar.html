@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Calendar</title>
+  <link rel="stylesheet" href="/scripts/psugasia/attendancenotices/jqueryui/jquery-ui.min.css">
+  <link rel='stylesheet' href='/scripts/psugasia/attendancenotices/fullcalendar/fullcalendar.min.css' />
+  <link href="/scripts/psugasia/attendancenotices/psugasia_attendancenotices_guardian.css" rel="stylesheet" />
+
+  <style>
+    body {font-family: Lato, sans-serif;}
+    .fc-basic-view .fc-body .fc-row {min-height: 6.9em;}
+    .fc-newAttendanceNoticeButton-button {color: orange;}
+  </style>
+
+  <script src="/scripts/psugasia/attendancenotices/fullcalendar/jquery.min.js"></script>
+  <script src="/scripts/psugasia/attendancenotices/jqueryui/jquery-ui.min.js"></script>
+  <script src='/scripts/psugasia/attendancenotices/fullcalendar/moment.min.js'></script>
+  <script src='/scripts/psugasia/attendancenotices/fullcalendar/fullcalendar.min.js'></script>
+  <script src="/scripts/psugasia/attendancenotices/psugasia_attendancenotices.js"></script>
+  <script src="/scripts/psugasia/attendancenotices/isdate.js"></script>
+
+  <script>
+    jQuery(document).ready(function() {
+      ~[tlist_sql;
+      select
+      nvl(calendar_cycledays,0) as calendar_cycledays,
+      nvl(calendar_notes,0) as calendar_notes
+
+      from u_attendancenotices_settings
+      where
+      schoolid = '~(curschoolid)'
+      ;]
+      var parameters = '?cycledays=~(calendar_cycledays)&notes=~(calendar_notes)';
+      [/tlist_sql]
+
+      jQuery('#calendar').fullCalendar({
+        contentHeight: "auto",
+        allDaySlot: false,
+        defaultView: 'month',
+        ~[tlist_sql;
+        select
+        calendar_slotduration,
+        calendar_starttime,
+        calendar_endtime,
+        decode(nvl(calendar_weekend,0),1,'true','false') as calendar_weekend
+        from U_attendancenotices_settings
+        where
+        schoolid = '~(curschoolid)'
+        ;]
+        slotDuration: '~(calendar_slotduration;js):00',
+        minTime: '~(calendar_starttime;js):00',
+        maxTime: '~(calendar_endtime;js):00',
+        weekends: ~(calendar_weekend;js),
+        [/tlist_sql]
+        customButtons: {
+          newAttendanceNoticeButton: {
+            text: 'Add Attendance Notice',
+            click: function() {
+              jQuery('<div>').dialog({
+                modal: true,
+                position: { my: "center", at: "center", of: "body" },
+                open: function() {
+                  jQuery(this).load('attendancenotices_edit.html?id=-1');
+                },
+                close: function() {
+                  jQuery(this).empty();
+                },
+                width: 600,
+                height: 360,
+                title: '~[text:psx.htmlc.guardian.attendancenotices_calendar.detailstitle]'
+              });
+            }
+          }
+        },
+        header: {
+          left: 'prev,next today newAttendanceNoticeButton',
+          center: 'title',
+          right: 'month,agendaWeek,agendaDay,listYear'
+        },
+        views: {
+  				listYear: { buttonText: 'journal' }
+  			},
+        eventClick: function(event) {
+          if (event.url) {
+            jQuery('<div>').dialog({
+              modal: true,
+              position: { my: "center", at: "center", of: "body" },
+              open: function() {
+                jQuery(this).load(event.url);
+              },
+              close: function() {
+                jQuery(this).empty();
+              },
+              width: 600,
+              height: 360,
+              title: '~[text:psx.htmlc.guardian.attendancenotices_calendar.detailstitle]'
+            });
+            //window.open(event.url, "_top");
+            return false;
+          }
+        },
+        events: 'attendancenotices_calendar.json'+parameters
+      });
+
+      ~[tlist_sql;
+      select
+      id
+
+      from u_attendancenotices_settings
+
+      where
+      schoolid = '~(curschoolid)'
+      and
+      (
+        nvl(maxrequests,0) <> 0
+        and
+        (
+            select
+            count(1)
+            from u_attendancenotices_requests uanr
+            inner join students s on uanr.studentsdcid = s.dcid
+            where
+            nvl(uanr.processed,0) = 0
+            and s.id = '~(curstudid)'
+        ) >= nvl(maxrequests,0)
+      )
+      ;]
+      //~(maxrequests)
+      jQuery('#calendar').fullCalendar('option', {
+        customButtons: {
+          newAttendanceNoticeButton: {
+            text: 'Add Attendance Notice',
+            click: function() {
+              jQuery('<div>').dialog({
+                modal: true,
+                position: { my: "center", at: "center", of: "body" },
+                open: function() {
+                  jQuery(this).load('attendancenotices_maxreached.html');
+                },
+                close: function() {
+                  jQuery(this).empty();
+                },
+                width: 600,
+                title: '~[text:psx.htmlc.guardian.attendancenotices_calendar.maxreachedtitle]'
+              });
+            }
+          }
+        }
+      });
+      [/tlist_sql]
+
+    });
+  </script>
+
+</head>
+<body>
+  ~[tlist_sql;
+  select
+  count(1) as c
+
+  from u_attendancenotices_requests uanr
+  inner join terms y on uanr.date_start between y.firstday and y.lastday and uanr.date_end between y.firstday and y.lastday and uanr.schoolid = y.schoolid and y.isyearrec = 1
+  inner join students s on uanr.studentsdcid = s.dcid 
+
+  where
+    
+  uanr.schoolid = '~(curschoolid)'
+  and y.yearid = '~(curyearid)'
+  and s.student_number = '~(student_number)'
+  and nvl(uanr.rejected,0) = 1;]
+  <!--~(c)-->
+  ~[if#rejected.~(c) > 0]
+  <div class="feedback-error" style="margin-left: 0; margin-right: 0;">~[text:psx.htmlc.guardian.attendancenotices_calendar.rejectedrequests]</div>
+  [/if#rejected]
+  [/tlist_sql]
+  <div id="calendar"></div>
+  <p>Icon made from <a href="http://www.onlinewebfonts.com/icon">Icon Fonts</a> is licensed by CC BY 3.0</p>
+</body>
+</html>

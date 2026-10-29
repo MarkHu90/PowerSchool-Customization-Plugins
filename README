@@ -1,0 +1,88 @@
+# PowerSchool Customization Plugins
+
+本仓库包含由 PSUG Asia 开发的 PowerSchool SIS 自定义插件。目前包括考勤通知（Attendance Notices）和家长会预约（PTC）两个模块。
+
+> 这些插件会创建自定义数据库扩展，并请求访问 PowerSchool 数据。请先在测试环境验证，再部署到生产环境。
+
+## 插件概览
+
+| 模块 | Setup 版本 | API 版本 | 主要功能 |
+| --- | --- | --- | --- |
+| Attendance Notices | 1.5.0 | 2.0.0 | 管理考勤通知日历、处理每日或按课节的考勤通知，并允许家长提交和维护通知 |
+| PTC V5 | 5.0.0 | 5.0.0 | 管理家长会场次和时段、教师日程、家长预约、Must Meet、排除规则、邮件及报表 |
+
+每个模块由两个需要独立打包和安装的插件组成：
+
+- `dbsetup`：创建模块所需的 PowerSchool 用户自定义表和字段。
+- `apicode`：提供页面、脚本、命名查询、权限、消息文本及数据访问声明。
+
+## 目录结构
+
+```text
+PowerSchool-Customization-Plugins/
+├── AttendanceNotice/
+│   ├── dbsetup/       # Attendance Notices 数据库扩展
+│   └── apicode/       # Attendance Notices 页面与应用逻辑
+└── PTC/
+	├── dbsetup/       # PTC V5 数据库扩展
+	└── apicode/       # PTC V5 页面与应用逻辑
+```
+
+## 打包
+
+PowerSchool 的每个插件包都必须在 ZIP 根目录包含 `plugin.xml`。请分别打包四个插件目录，不要把 `dbsetup` 或 `apicode` 目录本身作为 ZIP 内的最外层目录。
+
+在仓库根目录运行：
+
+```bash
+mkdir -p dist
+
+(cd AttendanceNotice/dbsetup && zip -r ../../dist/attendance-notices-setup-1.5.0.zip .)
+(cd AttendanceNotice/apicode && zip -r ../../dist/attendance-notices-api-2.0.0.zip .)
+(cd PTC/dbsetup && zip -r ../../dist/ptc5-setup-5.0.0.zip .)
+(cd PTC/apicode && zip -r ../../dist/ptc5-api-5.0.0.zip .)
+```
+
+## 安装
+
+1. 备份 PowerSchool 数据库，并先在非生产环境完成验证。
+2. 使用系统管理员账号打开 **System Management > Plugin Management Configuration**。
+3. 上传并启用对应模块的 `Setup` ZIP 包。
+4. 确认数据库扩展安装成功后，上传并启用同一模块的 `API` ZIP 包。
+5. 检查插件的数据访问请求，并按学校的安全策略批准所需权限。
+6. 登出后重新登录，确认管理员、教师和家长门户中的入口及权限均正常。
+
+安装顺序必须为 **Setup → API**。Attendance Notices 与 PTC 相互独立，可只安装其中一个模块。
+
+## 功能入口
+
+### Attendance Notices
+
+- 管理端：Attendance Notices 首页、日历、列表和设置。
+- 学生页面：查看和编辑所选学生的考勤通知。
+- 家长门户：查看日历，以及新增、编辑考勤通知。
+
+### PTC V5
+
+- 管理端：设置家长会场次与时段、管理预约、Must Meet、排除规则、测试联系人、邮件和报表。
+- 教师门户：配置个人设置、屏蔽时段、管理 Must Meet 学生并查看个人或完整日程。
+- 家长门户：预约家长会，并查看个人及家庭日程。
+
+## 升级与卸载
+
+- 升级前请备份数据库，并记录当前插件版本和配置。
+- 先升级 `Setup`，确认数据库扩展正常后再升级 `API`。
+- 不要直接删除自定义表或字段。卸载前应先导出需要保留的数据，并在测试环境验证卸载影响。
+- 插件声明的数据库字段访问权限及外部 CDN 请求应由 PowerSchool 管理员定期复核。
+
+## 开发说明
+
+- 修改插件版本时，请同步更新对应目录下的 `plugin.xml` 及本文档中的版本号。
+- `WEB_ROOT` / `web_root` 中的文件会映射到 PowerSchool Web Root；请保持现有路径和文件名大小写。
+- 命名查询位于 `queries_root`，数据库扩展定义位于 `user_schema_root`。
+- 提交前应检查 XML 格式，并确认每个 ZIP 的根目录都包含 `plugin.xml`。
+
+
+## 许可证
+
+本仓库未附带开源许可证。除非版权所有者另行授权，否则不得假定代码可被复制、修改或分发。

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sessions</title>
+<!-- required scripts -->
+  <link href="/scripts/psugasia/ptc5/datatables/datatables.min.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/datatables/datatables.min.js"></script>
+  ~[wc:commonscripts] 
+<!-- Required style sheets: screen.css, and print.css --> 
+  <link href="/images/css/screen.css" rel="stylesheet" media="screen">
+  <link href="/images/css/print.css" rel="stylesheet" media="print">
+  <link href="/scripts/psugasia/ptc5/common.css" rel="stylesheet">
+  <script src="/scripts/psugasia/ptc5/common.js?v=5.0.0" type="text/javascript"></script>
+  <script>
+    const curSchoolID = '~(curschoolid)';
+
+    async function showSessions() {
+      let gradeLevelsList = [];
+      let termsList = [];
+
+      if (DataTable.isDataTable('#table_sessions')) {
+        let table = new DataTable('#table_sessions');
+        table.destroy();
+        $j('#table_sessions tfoot th').empty();
+      }
+      DataTable.type('num', 'className', '');
+      DataTable.type('date', 'className', '');
+
+      let tableData = await getPQ(
+        'com.psugasia.ptc5.sessions.list', 
+        0, 
+        {
+          'schoolid': curSchoolID
+        },
+        [
+          'id',
+          'school',
+          'yearid',
+          'year',
+          'name',
+          'priority_open',
+          'priority_close',
+          'general_open',
+          'general_close',
+          'grade_levels',
+          'terms',
+          'status',
+          'edit'
+        ],
+        false
+      );
+      tableData.forEach(function(d) {
+        d.grade_levels.split(',').forEach(function(gl) {
+          if (gl != '' && !gradeLevelsList.includes(parseInt(gl)))
+            gradeLevelsList.push(parseInt(gl));
+        });
+        d.terms.split(',').forEach(function(t) {
+          if (!termsList.includes(t))
+            termsList.push(t);
+        });
+      });
+
+      let columns = [
+        { name: "school", title: "School", data: 'school' },
+        { name: "year", title: "Year", data: 'year', render: function ( data, type, row ) {
+          if (type == 'sort')
+            return row.yearid;
+          else
+            return data;
+        } },
+        { name: "name", title: "Name", data: 'name' },
+        { name: "priority_open", title: "Priority Open", data: 'priority_open', render: function ( data, type, row ) {
+          if (type == 'display')
+            return String(data).replaceAll('T', ' ');
+          else
+            return data;
+        } },
+        { name: "priority_close", title: "Priority Close", data: 'priority_close', render: function ( data, type, row ) {
+          if (type == 'display')
+            return String(data).replaceAll('T', ' ');
+          else
+            return data;
+        } },
+        { name: "general_open", title: "General Open", data: 'general_open', render: function ( data, type, row ) {
+          if (type == 'display')
+            return String(data).replaceAll('T', ' ');
+          else
+            return data;
+        } },
+        { name: "general_close", title: "General Close", data: 'general_close', render: function ( data, type, row ) {
+          if (type == 'display')
+            return String(data).replaceAll('T', ' ');
+          else
+            return data;
+        } },
+        { name: "grade_levels", title: "Grade Levels", data: 'grade_levels', render: function ( data, type, row ) {
+          if (type == 'filter')
+            return data;
+          else
+            return String(data).slice(1,-1).replaceAll(',',', ');
+        } },
+        { name: "terms", title: "Terms", data: 'terms', render: function ( data, type, row ) {
+          if (type == 'filter')
+            return data;
+          else
+            return String(data).replaceAll(',',', ');
+        }  },
+        { name: "status", title: "Status", data: 'status', render: function ( data, type, row ) {
+          if (type == 'display')
+            return (parseInt(data) === 1 ? 'Enabled' : 'Disabled');
+          else
+            return data;
+        } },
+        { name: "edit", title: "", data: 'edit', orderable: false, class: "centered", render: function ( data, type, row ) {
+          if (type == 'display')
+            return '<button type="button" onclick="editRecord('+row.id+')">Edit</button>';
+          else
+            return data;
+        } }
+      ];
+
+      let table = new DataTable('#table_sessions', {
+        data: tableData,
+        buttons: [
+          { extend: 'copy', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'excel', footer: false, title: '', exportOptions: {
+            columns: ':not(.noexport)',
+            format: { 
+              body: function(data, row, column, node) {
+                if ($j('<span>'+data+'</span>').find('select').length > 0)
+                  return $j(data).find("option:selected").text();
+                else if ($j('<span>'+data+'</span>').find('input[type="checkbox"]').length > 0)
+                  return $j('<span>'+data+'</span>').find('input[type="checkbox"]:checked').map(function(){ return this.value }).get().join(',');
+                else if ($j('<span>'+data+'</span>').find('textarea').length > 0)
+                  return $j(data).val();
+                else if ($j('<span>'+data+'</span>').find('input').length > 0)
+                  return $j(data).val();
+                else
+                  return $j('<span>'+data+'</span>').text();
+              }
+            }
+          } },
+          { extend: 'colvis', columns: 'th:not(.alwaysshow)' },
+          {
+            text: 'Reset State',
+            action: function (e, dt, node, config) {
+              dt.state.clear();
+              window.location.reload();
+            }
+          }
+        ],
+        layout: {
+          top: ['pageLength', 'buttons', 'search'],
+          topStart: null,
+          topEnd: null
+        },
+        columns: columns,
+        order: [[0, 'asc'], [1, 'asc'], [2, 'asc']],
+        pageLength: 25,
+        lengthMenu: [
+          [10, 25, 50, 100, 500, 1000, -1],
+          [10, 25, 50, 100, 500, 1000, 'All']
+        ],
+        stateSave: true,
+        stateLoadParams: function (settings, data) {//do not remember search filters
+          data.search.search = '';
+          data.columns.forEach(function(column) {
+            column.search.search = '';
+          });
+        },
+        createdRow: function (row, data, dataIndex) {
+          $j(row).attr('data-recordid', data.id);
+        }
+      });
+
+      if (tableData.length > 0) {
+        table.columns().flatten().each(function(colIdx) {
+          let column = columns[colIdx];
+          switch(column.name) {
+            case 'name':
+              var input = $j('<input type="text" style="'+(column.filterstyle ? column.filterstyle : 'width: 90%;')+'" data-index="' + colIdx + '" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val())
+                    .draw();
+                });
+
+              break;
+            case 'school':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort()
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+            case 'status':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort, descending
+                  return b - a;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+(parseInt(d) === 1 ? 'Enabled' : 'Disabled')+'</option>'));
+                });
+
+              break;
+            case 'year':
+              var select = $j('<select><option value=""></option></select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j(this).val(), {exact: true})
+                    .draw();
+                });
+
+              table
+                .column(colIdx)
+                .render('filter')
+                .sort(function(a, b) {//numeric sort
+                  return a - b;
+                })
+                .unique()
+                .each(function(d) {
+                  if (d)
+                    select.append($j('<option value="'+d+'">'+d+'</option>'));
+                });
+
+              break;
+            case 'priority_open':
+            case 'priority_close':
+            case 'general_open':
+            case 'general_close':
+              var input = $j('<input type="date" id="ft_date_'+colIdx+'" data-index="' + colIdx + '" style="width: 105px;" /><input type="time" id="ft_time_'+colIdx+'" data-index="' + colIdx + '" style="width: 95px;" />')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('keyup change', function() {
+                  table
+                    .column(colIdx)
+                    .search($j('#ft_date_'+colIdx).val()+'T'+$j('#ft_time_'+colIdx).val())
+                    .draw();
+                });
+                
+              break;
+            case 'grade_levels':
+              var optionsHTML = '';
+              gradeLevelsList.sort(function(a, b) {//numeric sort
+                  return a - b;
+                }).forEach(function(v, i, a) {
+                optionsHTML += '<option value="'+v+'">'+v+'</option>';
+              });
+              var select = $j('<select><option value=""></option>'+optionsHTML+'</select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  var filterValue = String($j(this).val());
+                  table
+                    .column(colIdx)
+                    .search(function(d) {
+                      if (filterValue != '')
+                        return d.split(',').includes(filterValue);
+                      else
+                        return true;
+                    })
+                    .draw();
+                });
+
+              break;
+            case 'terms':
+              var optionsHTML = '';
+              termsList.sort().forEach(function(v, i, a) {
+                optionsHTML += '<option value="'+v+'">'+v+'</option>';
+              });
+              var select = $j('<select><option value=""></option>'+optionsHTML+'</select>')
+                .appendTo(
+                  table.column(colIdx).footer()
+                )
+                .on('change', function() {
+                  var filterValue = String($j(this).val());
+                  table
+                    .column(colIdx)
+                    .search(function(d) {
+                      if (filterValue != '')
+                        return d.split(',').includes(filterValue);
+                      else
+                        return true;
+                    })
+                    .draw();
+                });
+
+              break;
+          }
+        });
+      }
+    }
+
+    function editRecord(sessionID) {
+      window.location.assign('sessions_edit.html?id='+sessionID);
+    }
+
+    $j(function() {
+      showSessions();
+    });
+  </script>
+  <style>
+    table thead th.dt-type-numeric,
+    table tfoot th.dt-type-numeric,
+    table tr td.dt-type-numeric {
+      text-align: left !important;
+    }
+  </style>
+</head> 
+<body> 
+  ~[wc:admin_header_css] 
+ <!-- breadcrumb start -->
+  <a href="/admin/home.html" target="_top">Start Page</a> 
+  &gt; PSUG Asia 
+  &gt; Parent Teacher Conference 
+  &gt; Sessions
+ <!-- breadcrumb end --> 
+<!-- start of main menu and content --> 
+  ~[wc:admin_navigation_css] 
+<!-- Start of Page --> 
+  <h1>Sessions</h1> 
+<!-- start of content area --> 
+  <div class="box-round" style="padding: 10px;"> 
+
+    <div class="button-row">
+      <button type="button" onclick="editRecord('-1')">New</button>
+    </div>
+
+    <table class="grid" id="table_sessions">
+      <thead>
+        <tr>
+          <th>School</th>
+          <th>Year</th>
+          <th>Name</th>
+          <th>Priority Open</th>
+          <th>Priority Close</th>
+          <th>General Open</th>
+          <th>General Close</th>
+          <th>Grade Levels</th>
+          <th>Terms</th>
+          <th>Status</th>
+          <th class="alwaysshow noexport"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th style="white-space: nowrap;"></th>
+          <th style="white-space: nowrap;"></th>
+          <th style="white-space: nowrap;"></th>
+          <th style="white-space: nowrap;"></th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+        </tr>
+      </tfoot>
+    </table>
+ 
+  </div> 
+<!-- end of content area --> 
+  ~[wc:admin_footer_css] 
+</body> 
+</html>

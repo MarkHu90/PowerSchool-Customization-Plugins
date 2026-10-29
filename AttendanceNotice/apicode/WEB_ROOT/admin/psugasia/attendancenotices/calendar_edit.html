@@ -1,0 +1,292 @@
+~[if#id.~(gpv.id)=]
+  ~[redirect:/admin/psugasia/attendancenotices/calendar.html]
+[/if#id]
+<style>
+  table.linkDescList td {font-size: 14px;}
+  a.contact {
+  	color: #195f7d;
+  	text-decoration: none;
+  	cursor: pointer;
+  }
+</style>
+
+<script>
+  function submitDelete() {
+    jConfirm("Are you sure you want to delete this record?").then(function (answer) {
+      if(answer == "true") {
+        jQuery("#deleteForm").submit();
+      }
+    });
+  }
+
+  function submitSave() {
+    if (!(jQuery("#allday").prop("checked")) && (jQuery("#time_start").val() == '' || jQuery("#time_end").val() == '')) {
+      jDialog("Please fill in all fields");
+    } else {
+      var rejected = jQuery("#rejected").val();
+      if (rejected == 1) {
+          
+          ~[if#highschool.~(curschoolid)=1800]
+          var guardianemail = jQuery("#studentsdcid option:selected").attr('guardianemail');
+          
+          var data = {
+              Name: "PowerSchool Leave Request",
+              From: "powerschool@notice.ykpaoschool.cn",
+              To: guardianemail,
+              ReplyTo: "slo@ykpaoschool.cn",
+              Subject: "Leave Request Mail Notice",
+              Body: "Dear Parent,<br><br>We are currently unable to process your child’s leave request as additional information is required to authorize the leave. Please visit the Student Life Office or call us before 4:30 PM today to provide the necessary details.<br><br>Contact: (021) 61671999 (ext. 6202 or 6226)<br><br>Thank you for your understanding and support.<br><br>Student Life Office<br>YKPS Songjiang Campus<br><br>尊敬的家长，<br><br>因您的请假需进一步信息核实，很抱歉本次请假未能受理。请在今日16：30前致电或前往学生生活办公室。<br><br>电话：（021）61671999 转分机6202或6226<br><br>感谢您一如既往的支持！<br><br>学生生活办公室<br>包玉刚实验学校松江校区"
+          }
+      
+          jQuery.ajax({
+              dataType: "text",
+              contentType:"application/json",
+              type: "POST",
+              url: "https://api.ykpaoschool.cn/api/PowerSchool/SendSMTPMail",
+              data: JSON.stringify(data),
+              async: false,
+              complete: function(xhr, textStatus) {
+                ~[if#source.~(gpv.source)=listing]
+                    window.location.href = "listing.html";
+                [else#source]
+                    window.location.href = "calendar_calendar.html";
+                [/if#source]
+                
+              },
+              error: function(result) {
+                noErrors = false;
+                alert("There was a problem processing your request, please try again later");
+              }
+            });
+            [/if#highschool]
+          
+          jQuery("#saveForm").submit();
+      } else {
+          jQuery("#saveForm").submit();
+      }
+      //jQuery("#saveForm").submit();
+    }
+  }
+
+  function submitProcess() {
+    window.open('calendar_process_~[tlist_sql;
+    select
+    attendancemode
+    from u_attendancenotices_settings
+    where
+    schoolid = '~(curschoolid)'
+    ;]~(attendancemocde)[/tlist_sql].html?id=~(gpv.id)~[if#source.~(gpv.source)=listing]&source=listing[/if#source]', '_top');
+  }
+
+  function submitUnProcess() {
+    jConfirm("Are you sure you want to return this record to not yet processed status?").then(function (answer) {
+    if(answer == "true") {
+        jQuery("#processed").val('0');
+        submitSave();
+      }
+    });
+  }
+
+  function getStudentList(s) {
+    jQuery('#studentsdcid').empty();
+    jQuery.getJSON('calendar_edit_students.json?grade_level='+jQuery('#grade_level').val(), function(data) {
+      if (data.length > 1) {
+        data.pop();
+        jQuery.each(data, function(k,v) {
+          if (s == v.dcid)
+            jQuery('#studentsdcid').append('<option value="'+v.dcid+'" guardianemail="'+v.guardianemail+'" selected>'+v.lastfirst+'</option>');
+          else
+            jQuery('#studentsdcid').append('<option value="'+v.dcid+'" guardianemail="'+v.guardianemail+'">'+v.lastfirst+'</option>');
+        });
+      }
+      updateParentContact();
+    });
+  }
+
+  function toggleAllDay() {
+    if (jQuery("#allday").prop("checked")) {
+      jQuery("#time_start").val('').prop("readOnly",true);
+      jQuery("#time_end").val('').prop("readOnly",true);
+    }
+    else {
+      jQuery("#time_start").prop("readOnly",false);
+      jQuery("#time_end").prop("readOnly",false);
+    }
+  }
+
+  function updateParentContact() {
+    var guardianemail = jQuery("#studentsdcid option:selected").attr('guardianemail');
+    var sdcid = jQuery("#studentsdcid").val();
+    jQuery("#guardianemail_a").attr('href','mailto:'+guardianemail);
+    jQuery("#contacts_a").attr('href','/admin/students/home.html?frn=001'+sdcid+'&lsp=contacts.html');
+  }
+
+</script>
+
+<div class="box-round">
+  <form action="~[if#source.~(gpv.source)=listing]listing.html[else#source]calendar_calendar.html[/if#source]" method="POST" id="deleteForm">
+    <input type="hidden" name="ac" value="prim">
+    <input type="hidden" name="DD-u_attendancenotices_requests.ID:~(gpv.id)" value="1">
+  </form>
+
+  <form action="~[if#source.~(gpv.source)=listing]listing.html[else#source]calendar_calendar.html[/if#source]" method="POST" id="saveForm">
+  ~[DirectTable.Select:u_attendancenotices_requests;ID:~(gpv.id)]
+  <input type="hidden" name="[u_attendancenotices_requests]schoolid" value="~(curschoolid)">
+  <input type="hidden" name="[u_attendancenotices_requests]processed" id="processed" value="">
+  <input type="hidden" name="ac" value="prim">
+  <table class="linkDescList">
+    <tr>
+      <td class="bold" style="width:150px;">Grade Level</td>
+      <td>
+        <select id="grade_level" onchange="getStudentList('')">
+          ~[tlist_sql;
+          select distinct
+          grade_level
+          from students
+          where
+          schoolid = '~(curschoolid)'
+          and enroll_status = 0
+          order by 1
+          ;]
+          <option value="~(grade_level)">~(grade_level)</option>
+          [/tlist_sql]
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Student</td>
+      <td>
+      <select id="studentsdcid" name="[u_attendancenotices_requests]studentsdcid" onchange="updateParentContact()"></select>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Parent Contact</td>
+      <td>
+      <a href="#" id="guardianemail_a" class="contact">Guardian Email</a> / <a href="#" id="contacts_a" class="contact" target="_blank">Contacts Page</a>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Absent From</td>
+      <td>
+      <input type="text" id="date_start" name="[u_attendancenotices_requests]date_start" size="11" value="">
+      <input type="time" id="time_start" name="[u_attendancenotices_requests]time_start" value="" size="6" maxlength="5" placeholder="HH:MM">
+      <script>
+        jQuery("#date_start").datepicker();
+      </script>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Absent To</td>
+      <td>
+      <input type="text" id="date_end" name="[u_attendancenotices_requests]date_end" size="11" value="">
+      <input type="time" id="time_end" name="[u_attendancenotices_requests]time_end" value="" size="6" maxlength="5" placeholder="HH:MM">
+      <script>
+        jQuery("#date_end").datepicker();
+      </script>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">All Day</td>
+      <td>
+      <input type="checkbox" id="allday" name="[u_attendancenotices_requests]allday" value="1" onchange="toggleAllDay()">
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Personal Leave</td>
+      <td>
+      <input type="checkbox" id="personal_leave" name="[u_attendancenotices_requests]personal_leave" value="1">
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Principal Approved</td>
+      <td>
+      <input type="checkbox" id="principal_approved" name="[u_attendancenotices_requests]principal_approved" value="1">
+      </td>
+    </tr>
+    <tr id="reason_tr" style="display:none;">
+      <td class="bold">Reason</td>
+      <td>
+        <select id="reason" name="[u_attendancenotices_requests]reason"></select>
+      </td>
+    </tr>
+    <script type="text/javascript">
+    ~[tlist_sql;
+    select
+    trim(reasonslist) as reasonslist
+    from u_attendancenotices_settings
+    where
+    schoolid = '~(curschoolid)'
+    and reasonslist is not null
+    ;]
+      var reasonsList = '~(reasonslist;js)';
+      var reasonsListA = reasonsList.split(';');
+      jQuery(reasonsListA).each(function(k,v) {
+        if (v != '')
+          jQuery('#reason').append('<option value="'+jQuery.trim(v)+'">'+jQuery.trim(v)+'</option>');
+      });
+      if (jQuery('#reason option').length > 0)
+        jQuery('#reason_tr').show();
+    [/tlist_sql]
+      jQuery('#reason').val("~([u_attendancenotices_requests]reason)");
+    </script>
+    <tr>
+      <td class="bold" valign="top">Remarks</td>
+      <td>
+        <textarea id="remarks" name="[u_attendancenotices_requests]remarks" style="height:100px; width:400px;"></textarea>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold" valign="top">Rejected</td>
+      <td>
+        <select id="rejected" name="[u_attendancenotices_requests]rejected">
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold" valign="top">Reject Remarks</td>
+      <td>
+        <textarea id="rejected_remarks" name="[u_attendancenotices_requests]rejected_remarks" style="height:100px; width:400px;"></textarea>
+        <div class="feedback-info" style="margin-left: 0; margin-right: 0;">This will be visible to the parent</div>
+      </td>
+    </tr>
+    <tr>
+      <td class="bold">Processed</td>
+      <td>
+        <span id="processed_span"></span>
+      </td>
+    </tr>
+  </table>
+  </form>
+</div>
+<div style="text-align: right; margin: 10px;">
+  <button type="button" onclick="submitSave()">Save</button>
+  ~[if#existing.~(gpv.id)#-1]
+  <button type="button" onclick="submitDelete()">Delete</button>
+    ~[if#rejected.~([u_attendancenotices_requests]rejected)#1]
+    &nbsp;&nbsp;
+    <button type="button" onclick="submitProcess()" id="processButton">Process</button>
+    <button type="button" onclick="submitUnProcess()" id="unProcessButton" style="display:none;">Un-Process</button>
+    [/if#rejected]
+  [/if#existing]
+</div>
+<script>
+  ~[tlist_sql;
+  select grade_level
+  from students
+  where
+  dcid = '~([u_attendancenotices_requests]studentsdcid)'
+  ;]
+  jQuery("#grade_level").val("~(grade_level)");
+  [/tlist_sql]
+  getStudentList('~([u_attendancenotices_requests]studentsdcid)');
+  toggleAllDay();
+  if ('~([u_attendancenotices_requests]processed)' == '1') {
+    jQuery("#processButton").html('Process Again');
+    jQuery("#unProcessButton").show();
+    jQuery("#processed_span").html("~([u_attendancenotices_requests]processed_by) (~([u_attendancenotices_requests]processed_when))");
+  } else {
+    jQuery("#processed_span").html("Not yet processed");
+  }
+</script>

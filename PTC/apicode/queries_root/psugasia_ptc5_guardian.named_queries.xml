@@ -1,0 +1,154 @@
+<queries>
+  <query name="com.psugasia.ptc5.guardian.open" flattened="true">
+    <args>
+      <arg name="a" type="primitive" required="true" description="schoolid" />
+      <arg name="b" type="primitive" required="true" description="yearid" />
+      <arg name="c" type="primitive" required="true" description="studentdcid" />
+      <arg name="d" type="primitive" required="true" description="usertype" />
+      <arg name="p" type="primitive" required="true" description="guardianid" />
+    </args>
+    <columns>
+      <column column="u_ptc5_sessions.id">result.id</column>
+      <column column="u_ptc5_sessions.name">result.name</column>
+      <column column="u_ptc5_sessions.instructions">result.instructions</column>
+      <column column="u_ptc5_sessions.priority_limit">result.priority_limit</column>
+      <column column="u_ptc5_sessions.general_limit">result.general_limit</column>
+      <column column="u_ptc5_sessions.id">result.ispriority</column>
+      <column column="u_ptc5_sessions.termdcids">result.termdcids</column>
+      <column column="u_ptc5_sessions.checkteacherschedule">result.checkteacherschedule</column>
+      <column column="u_ptc5_sessions.siblingtimeslots">result.siblingtimeslots</column>
+      <column column="u_students_ptc5.message">result.studentmessage</column>
+    </columns>
+    <sql>
+<![CDATA[
+select
+ps.id,
+ps.name,
+ps.instructions,
+ps.priority_limit,
+ps.general_limit,
+case when cast(systimestamp at time zone (select timezone_code from u_ptc5_settings where rownum = 1) as date) between to_date(ps.priority_open,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(ps.priority_close,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') then 1 else 0 end ispriority,
+ps.termdcids,
+ps.checkteacherschedule,
+ps.siblingtimeslots,
+(
+  select 
+  message
+
+  from u_students_ptc5
+
+  where
+  studentsdcid = :c
+) as studentmessage
+
+from u_ptc5_sessions ps
+
+where
+nvl(ps.status,0) = 1
+and ps.schoolid = :a
+and ps.yearid = :b
+and (:d <> 'student' or (:d = 'student' and nvl(ps.studentsignup,0) = 1))
+and ps.grade_levels like '%,'||(select grade_level from students where dcid = :c)||',%'
+and nvl((select excluded from u_students_ptc5 where studentsdcid = :c),0) = 0
+and (
+  (
+    (select nvl(priorityonly,0) from u_students_ptc5 where studentsdcid = :c) = 1
+    and
+    cast(systimestamp at time zone (select timezone_code from u_ptc5_settings where rownum = 1) as date) between to_date(ps.priority_open,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(ps.priority_close,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+  )
+  or
+  cast(systimestamp at time zone (select timezone_code from u_ptc5_settings where rownum = 1) as date) between to_date(ps.general_open,'YYYY-MM-DD"T"HH24'||chr(58)||'MI') and to_date(ps.general_close,'YYYY-MM-DD"T"HH24'||chr(58)||'MI')
+  or
+  exists (
+    select tc.personid 
+    from u_ptc5_testingcontacts tc 
+    inner join guardianpersonassoc gpa on tc.personid = gpa.personid
+    where
+    gpa.guardianid = :p
+  )
+)
+
+order by ps.name
+]]>
+    </sql>
+  </query>
+  <query name="com.psugasia.ptc5.guardian.section.timeslots" flattened="true">
+    <args>
+      <arg name="c" type="primitive" required="true" description="studentdcid" />
+      <arg name="f" type="primitive" required="true" description="sessionid" />
+      <arg name="g" type="primitive" required="true" description="ispriority" />
+      <arg name="h" type="primitive" required="true" description="sectiondcid" />
+      <arg name="i" type="primitive" required="true" description="schoolstaffdcid" />
+      <arg name="k" type="primitive" required="true" description="ismustmeet" />
+    </args>
+    <columns>
+      <column column="u_ptc5_timeslots.id">result.id</column>
+      <column column="u_ptc5_timeslots.startdt">result.startdt</column>
+      <column column="u_ptc5_timeslots.enddt">result.enddt</column>
+      <column column="u_ptc5_timeslots.capacity">result.capacity</column>
+    </columns>
+    <sql>
+<![CDATA[
+with sectionptcteacheroverride as (
+  select distinct
+  e.dcid,
+  pc.schoolstaffdcid
+
+  from u_ptc5_cc pc
+  inner join cc d on pc.ccid = d.id
+  inner join sections e on d.sectionid = e.id
+  inner join students s on d.studentid = s.id
+
+  where
+  pc.u_ptc5_sessionsid = :f
+  and s.dcid = :c
+  and e.dcid = :h
+),
+sectionptcteacher as (
+  select
+  e.dcid as sectiondcid,
+  t.dcid as schoolstaffdcid
+
+  from sections e
+  inner join teachers t on e.teacher = t.id
+
+  where
+  e.dcid = :h
+  and e.dcid not in (select distinct dcid from (select * from sectionptcteacheroverride) where dcid is not null)
+)
+
+select
+pt.id,
+pt.startdt,
+pt.enddt,
+pt.capacity
+
+from u_ptc5_timeslots pt
+left outer join u_ptc5_timeslots_courses ptc on pt.id = ptc.u_ptc5_timeslotsid
+left outer join u_ptc5_timeslots_sections pte on pt.id = pte.u_ptc5_timeslotsid
+left outer join u_ptc5_timeslots_schoolstaff ptss on pt.id = ptss.u_ptc5_timeslotsid
+
+where
+pt.u_ptc5_sessionsid = :f
+and (ptc.coursedcid is null or ptc.coursedcid = (select c2.dcid from sections e2 inner join courses c2 on e2.course_number = c2.course_number where e2.dcid = :h))
+and (pte.sectiondcid is null or pte.sectiondcid = (select e2.dcid from sections e2 where e2.dcid = :h))
+and (ptss.schoolstaffdcid is null or ptss.schoolstaffdcid = (select schoolstaffdcid from (select * from sectionptcteacher)))
+and nvl(pt.admin,0) = 0
+and nvl(pt.status,0) = 1
+and pt.grade_levels like '%,'||(select grade_level from students where dcid = :c)||',%'
+and (:g = '1' or (:g = '0' and nvl(pt.priorityonly,0) = 0))
+and (:k = '1' or (:k = '0' and nvl(pt.mustmeet,0) = 0))
+and pt.id not in (
+  select 
+  u_ptc5_timeslotsid
+  from u_ptc5_timeslots_blocked
+  where
+  schoolstaffdcid = :i
+  and status = 1
+)
+
+order by pt.startdt, pt.enddt
+]]>
+    </sql>
+  </query>
+</queries>
